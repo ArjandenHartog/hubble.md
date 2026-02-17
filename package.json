@@ -1,0 +1,9 @@
+{
+  "name": "hubble-md",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "check": "pnpm -r --if-present check",
+    "build": "pnpm -r --if-present build"
+  }
+}
