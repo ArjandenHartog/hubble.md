@@ -1,49 +1,78 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
+import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
+import { keymatch } from "keymatch";
+import { useStoreValue } from "@simplestack/store/react";
+import { loadPath, viewerStore } from "./store";
 import "./App.css";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const state = useStoreValue(viewerStore);
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
+  async function openFilePicker() {
+    const selected = await open({
+      multiple: false,
+      directory: false,
+      title: "Open Markdown file",
+      filters: [
+        { name: "Markdown", extensions: ["md", "markdown", "mdown"] },
+        { name: "Text", extensions: ["txt", "text"] },
+      ],
+    });
+    if (typeof selected === "string") {
+      await loadPath(selected);
+    }
   }
 
+  useEffect(() => {
+    const onKeyDown = async (event: KeyboardEvent) => {
+      if (keymatch(event, "CmdOrCtrl+O")) {
+        event.preventDefault();
+        await openFilePicker();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const init = async () => {
+      const launchPath = await invoke<string | null>("get_launch_file_path");
+      if (!active) return;
+
+      if (typeof launchPath === "string" && launchPath.length > 0) {
+        await loadPath(launchPath);
+        return;
+      }
+
+      const lastPath = viewerStore.get().lastOpenedPath;
+      if (lastPath) {
+        await loadPath(lastPath);
+      }
+    };
+    void init();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
-    <main className="container px-6">
-      <h1 className="text-3xl text-red-500 font-semibold">Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
+    <main className="app">
+      <header className="toolbar">
+        <button className="button" type="button" onClick={() => void openFilePicker()}>
+          Open (⌘O)
+        </button>
+        <span className="path">{state.currentPath ?? "No file selected"}</span>
+      </header>
+      <section className="content" aria-live="polite">
+        {state.status === "loading" && <p>Loading…</p>}
+        {state.status === "error" && <p>{state.error ?? "Failed to open file."}</p>}
+        {state.status !== "loading" && state.status !== "error" && !state.currentPath && (
+          <p>Open a markdown file to view raw text.</p>
+        )}
+        {state.status === "ready" && <pre className="rawText">{state.content}</pre>}
+      </section>
     </main>
   );
 }
