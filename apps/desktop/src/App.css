@@ -141,6 +141,10 @@
     height 130ms ease;
 }
 
+.pm-virtual-cursor.no-position-transition {
+  transition: none;
+}
+
 .pm-virtual-cursor.blinking {
   animation: pm-cursor-blink 1s infinite;
 }

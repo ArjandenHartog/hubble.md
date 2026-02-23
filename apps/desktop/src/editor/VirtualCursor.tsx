@@ -17,7 +17,9 @@ export function VirtualCursor({
 }) {
 	const [cursorStyle, setCursorStyle] = useState<CursorStyle>("hidden");
 	const [cursorPosition, setCursorPosition] = useState<CursorPosition | null>(null);
+	const [animatePosition, setAnimatePosition] = useState(true);
 	const blinkTimeoutRef = useRef<number | null>(null);
+	const inputModeRef = useRef<"pointer" | "keyboard">("keyboard");
 
 	useEffect(() => {
 		if (!editor) return;
@@ -81,7 +83,14 @@ export function VirtualCursor({
 				width,
 				height: scaledHeight,
 			});
+			setAnimatePosition(inputModeRef.current === "keyboard");
 			queueBlink();
+		};
+		const onMouseDown = () => {
+			inputModeRef.current = "pointer";
+		};
+		const onKeyDown = () => {
+			inputModeRef.current = "keyboard";
 		};
 
 		updateCursor();
@@ -89,6 +98,8 @@ export function VirtualCursor({
 		editor.on("transaction", updateCursor);
 		editor.on("focus", updateCursor);
 		editor.on("blur", updateCursor);
+		window.addEventListener("mousedown", onMouseDown, true);
+		window.addEventListener("keydown", onKeyDown, true);
 		window.addEventListener("resize", updateCursor);
 		window.addEventListener("scroll", updateCursor, true);
 
@@ -97,6 +108,8 @@ export function VirtualCursor({
 			editor.off("transaction", updateCursor);
 			editor.off("focus", updateCursor);
 			editor.off("blur", updateCursor);
+			window.removeEventListener("mousedown", onMouseDown, true);
+			window.removeEventListener("keydown", onKeyDown, true);
 			window.removeEventListener("resize", updateCursor);
 			window.removeEventListener("scroll", updateCursor, true);
 			clearBlinkTimeout();
@@ -107,7 +120,7 @@ export function VirtualCursor({
 
 	return (
 		<span
-			className={`pm-virtual-cursor ${cursorStyle === "blinking" ? "blinking" : ""}`}
+			className={`pm-virtual-cursor ${cursorStyle === "blinking" ? "blinking" : ""} ${animatePosition ? "" : "no-position-transition"}`}
 			aria-hidden="true"
 			style={{
 				left: `${cursorPosition.left}px`,
