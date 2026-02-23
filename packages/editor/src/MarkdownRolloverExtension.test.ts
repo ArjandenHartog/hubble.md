@@ -132,4 +132,11 @@ describe('markdown rollover side transitions', () => {
 			),
 		).toBe('inside');
 	});
+
+	it('identifies right-of-delimiter positions correctly', () => {
+		expect(__testing.isCursorRightOfDelimiter('start', 'inside')).toBe(true);
+		expect(__testing.isCursorRightOfDelimiter('end', 'outside')).toBe(true);
+		expect(__testing.isCursorRightOfDelimiter('start', 'outside')).toBe(false);
+		expect(__testing.isCursorRightOfDelimiter('end', 'inside')).toBe(false);
+	});
 });

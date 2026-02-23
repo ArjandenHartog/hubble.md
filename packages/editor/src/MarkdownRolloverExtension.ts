@@ -90,26 +90,33 @@ export const MarkdownRolloverExtension = Extension.create({
 						},
 					},
 					handleKeyDown: (view, event) => {
-						if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
-							return false;
+						if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+							const next = getBoundaryTransition(view, event.key);
+							if (!next) return false;
+
+							const tr = view.state.tr.setSelection(
+								TextSelection.create(view.state.doc, next.boundaryPos),
+							);
+							setStoredMarkIntent(tr, view.state, next.markType, next.side);
+							tr.setMeta(MarkdownRolloverKey, {
+								boundaryPos: next.boundaryPos,
+								markName: next.markType.name,
+								boundary: next.boundary,
+								side: next.side,
+							} satisfies NonNullable<RolloverBoundaryState>);
+							view.dispatch(tr);
+							event.preventDefault();
+							return true;
 						}
 
-						const next = getBoundaryTransition(view, event.key);
-						if (!next) return false;
+						if (event.key === 'Backspace' || event.key === 'Delete') {
+							const handled = maybeHandleDeleteAtDelimiter(view);
+							if (!handled) return false;
+							event.preventDefault();
+							return true;
+						}
 
-						const tr = view.state.tr.setSelection(
-							TextSelection.create(view.state.doc, next.boundaryPos),
-						);
-						setStoredMarkIntent(tr, view.state, next.markType, next.side);
-						tr.setMeta(MarkdownRolloverKey, {
-							boundaryPos: next.boundaryPos,
-							markName: next.markType.name,
-							boundary: next.boundary,
-							side: next.side,
-						} satisfies NonNullable<RolloverBoundaryState>);
-						view.dispatch(tr);
-						event.preventDefault();
-						return true;
+						return false;
 					},
 					decorations: (state) => {
 						if (isPointerDown) return frozenDecorations;
@@ -253,6 +260,28 @@ function getBoundaryTransition(
 	};
 }
 
+function maybeHandleDeleteAtDelimiter(view: EditorView): boolean {
+	const { state } = view;
+	const { selection } = state;
+	if (!selection.empty) return false;
+
+	const boundaryMatch = getBoundaryMatchAtPos(state, selection.from);
+	if (!boundaryMatch) return false;
+
+	const boundaryState = MarkdownRolloverKey.getState(state) ?? null;
+	const currentSide = getCurrentCursorSide(state, boundaryMatch.markType, boundaryState);
+	if (!isCursorRightOfDelimiter(boundaryMatch.boundary, currentSide)) return false;
+
+	const range = findMarkRangeAtPos(state, selection.from, boundaryMatch.markType);
+	if (!range) return false;
+
+	const tr = state.tr.removeMark(range.from, range.to, boundaryMatch.markType);
+	tr.removeStoredMark(boundaryMatch.markType);
+	tr.setSelection(TextSelection.create(tr.doc, selection.from));
+	view.dispatch(tr);
+	return true;
+}
+
 function inferSideFromCursorMotion(
 	oldState: EditorState,
 	newState: EditorState,
@@ -318,6 +347,13 @@ function getNextSideForArrow({
 	if (key === 'ArrowLeft' && currentSide === 'outside') return 'inside';
 	if (key === 'ArrowRight' && currentSide === 'inside') return 'outside';
 	return null;
+}
+
+function isCursorRightOfDelimiter(boundary: BoundaryType, side: CursorSide) {
+	return (
+		(boundary === 'start' && side === 'inside') ||
+		(boundary === 'end' && side === 'outside')
+	);
 }
 
 function deriveBoundaryState(
@@ -517,4 +553,5 @@ function findMarkRangeAtPos(
 export const __testing = {
 	getNextSideForArrow,
 	inferSideFromCursorMotion,
+	isCursorRightOfDelimiter,
 };
