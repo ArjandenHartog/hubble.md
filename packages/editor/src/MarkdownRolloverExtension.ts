@@ -39,6 +39,8 @@ export const MarkdownRolloverExtension = Extension.create({
 	name: 'markdownRollover',
 
 	addProseMirrorPlugins() {
+		let isPointerDown = false;
+		let frozenDecorations: DecorationSet | null = null;
 		return [
 			new Plugin<RolloverBoundaryState>({
 				key: MarkdownRolloverKey,
@@ -65,6 +67,28 @@ export const MarkdownRolloverExtension = Extension.create({
 					},
 				},
 				props: {
+					handleDOMEvents: {
+						mousedown: (view, event) => {
+							// Freeze currently visible delimiter decorations during
+							// pointer-down so interim selection updates don't reflow them.
+							isPointerDown = true;
+							frozenDecorations = buildRolloverDecorations(view.state);
+							const handled = maybeHandleDelimiterMouseDown(
+								view,
+								event as MouseEvent,
+							);
+							return handled;
+						},
+						mouseup: (view) => {
+							if (!isPointerDown) return false;
+							// Release frozen visuals at pointer-up and repaint against the
+							// final selection state after the click/drag settles.
+							isPointerDown = false;
+							frozenDecorations = null;
+							view.dispatch(view.state.tr);
+							return false;
+						},
+					},
 					handleKeyDown: (view, event) => {
 						if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
 							return false;
@@ -87,85 +111,92 @@ export const MarkdownRolloverExtension = Extension.create({
 						event.preventDefault();
 						return true;
 					},
-					handleClick: (view, pos, event) => {
-						const target = event.target as HTMLElement | null;
-						const delimiter = target?.closest(
-							'.pm-md-delimiter',
-						) as HTMLElement | null;
-						if (!delimiter) return false;
-
-						const markName = delimiter.dataset.mark;
-						const boundary = delimiter.dataset.boundary as BoundaryType | undefined;
-						const boundaryPos = Number(delimiter.dataset.pos);
-						if (!markName || !boundary || Number.isNaN(boundaryPos)) return false;
-
-						const markType = view.state.schema.marks[markName];
-						if (!markType) return false;
-
-						const rect = delimiter.getBoundingClientRect();
-						const mouseEvent = event as MouseEvent;
-						const sideOfDelimiter: 'left' | 'right' =
-							mouseEvent.clientX < rect.left + rect.width / 2 ? 'left' : 'right';
-						const side =
-							boundary === 'start'
-								? sideOfDelimiter === 'left'
-									? 'outside'
-									: 'inside'
-								: sideOfDelimiter === 'left'
-									? 'inside'
-									: 'outside';
-
-						const tr = view.state.tr.setSelection(
-							TextSelection.create(view.state.doc, boundaryPos),
-						);
-						setStoredMarkIntent(tr, view.state, markType, side);
-						tr.setMeta(MarkdownRolloverKey, {
-							boundaryPos,
-							markName,
-							boundary,
-							side,
-						} satisfies NonNullable<RolloverBoundaryState>);
-						view.dispatch(tr);
-						event.preventDefault();
-						return true;
-					},
 					decorations: (state) => {
-						const active = getActiveMarkContext(state);
-						if (!active) return null;
-						const delimiter = DELIMITER_BY_MARK[active.markType.name];
-						if (!delimiter) return null;
-
-
-						const startWidget = Decoration.widget(
-							active.from,
-							() =>
-								createDelimiterWidget({
-									delimiter,
-									markName: active.markType.name,
-									boundary: 'start',
-									pos: active.from,
-								}),
-							{ side: -1 },
-						);
-						const endWidget = Decoration.widget(
-							active.to,
-							() =>
-								createDelimiterWidget({
-									delimiter,
-									markName: active.markType.name,
-									boundary: 'end',
-									pos: active.to,
-								}),
-							{ side: 1 },
-						);
-
-						return DecorationSet.create(state.doc, [startWidget, endWidget]);
+						if (isPointerDown) return frozenDecorations;
+						return buildRolloverDecorations(state);
 					},
 				},
 			}),
 		];
 	},
 });
+
+function buildRolloverDecorations(state: EditorState): DecorationSet | null {
+	const active = getActiveMarkContext(state);
+	if (!active) return null;
+	const delimiter = DELIMITER_BY_MARK[active.markType.name];
+	if (!delimiter) return null;
+
+	const startWidget = Decoration.widget(
+		active.from,
+		() =>
+			createDelimiterWidget({
+				delimiter,
+				markName: active.markType.name,
+				boundary: 'start',
+				pos: active.from,
+			}),
+		{ side: -1 },
+	);
+	const endWidget = Decoration.widget(
+		active.to,
+		() =>
+			createDelimiterWidget({
+				delimiter,
+				markName: active.markType.name,
+				boundary: 'end',
+				pos: active.to,
+			}),
+		{ side: 1 },
+	);
+
+	return DecorationSet.create(state.doc, [startWidget, endWidget]);
+}
+/**
+ * Handles direct interaction with markdown delimiter widgets on pointer-down.
+ *
+ * We resolve inside/outside side intent on mousedown (not click/mouseup) so
+ * boundary targeting is captured before subsequent selection churn.
+ */
+function maybeHandleDelimiterMouseDown(view: EditorView, event: MouseEvent): boolean {
+	const target = event.target as HTMLElement | null;
+	const delimiter = target?.closest('.pm-md-delimiter') as HTMLElement | null;
+	if (!delimiter) return false;
+
+	const markName = delimiter.dataset.mark;
+	const boundary = delimiter.dataset.boundary as BoundaryType | undefined;
+	const boundaryPos = Number(delimiter.dataset.pos);
+	if (!markName || !boundary || Number.isNaN(boundaryPos)) return false;
+
+	const markType = view.state.schema.marks[markName];
+	if (!markType) return false;
+
+	const rect = delimiter.getBoundingClientRect();
+	const sideOfDelimiter: 'left' | 'right' =
+		event.clientX < rect.left + rect.width / 2 ? 'left' : 'right';
+	const side =
+		boundary === 'start'
+			? sideOfDelimiter === 'left'
+				? 'outside'
+				: 'inside'
+			: sideOfDelimiter === 'left'
+				? 'inside'
+				: 'outside';
+
+	const tr = view.state.tr.setSelection(
+		TextSelection.create(view.state.doc, boundaryPos),
+	);
+	setStoredMarkIntent(tr, view.state, markType, side);
+	tr.setMeta(MarkdownRolloverKey, {
+		boundaryPos,
+		markName,
+		boundary,
+		side,
+	} satisfies NonNullable<RolloverBoundaryState>);
+	view.dispatch(tr);
+	event.preventDefault();
+	return true;
+}
 
 function createDelimiterWidget({
 	delimiter,
