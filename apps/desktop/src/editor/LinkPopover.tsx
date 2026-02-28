@@ -109,6 +109,43 @@ export function LinkPopover({
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const popoverRef = useRef<HTMLDivElement | null>(null);
 	const positionUpdateRef = useRef<(() => void) | null>(null);
+	const machineStateRef = useRef(machineState);
+	const [isPreviewEntering, setIsPreviewEntering] = useState(false);
+
+	useEffect(() => {
+		machineStateRef.current = machineState;
+	}, [machineState]);
+
+	useEffect(() => {
+		if (machineState.mode !== "preview") {
+			setIsPreviewEntering(false);
+			return;
+		}
+		if (!isPreviewEntering) return;
+		const frame = requestAnimationFrame(() => {
+			setIsPreviewEntering(false);
+			requestAnimationFrame(() => {
+				positionUpdateRef.current?.();
+			});
+		});
+		return () => window.cancelAnimationFrame(frame);
+	}, [machineState.mode, isPreviewEntering]);
+
+	const dispatchMachineEvent = (event: MachineEvent) => {
+		const previousState = machineStateRef.current;
+		const shouldAnimateHiddenToPreview =
+			event.type === "LINK_SESSION_CHANGED" &&
+			Boolean(event.activeKey) &&
+			previousState.mode === "hidden" &&
+			previousState.activeKey !== event.activeKey;
+
+		if (!shouldAnimateHiddenToPreview) {
+			dispatch(event);
+			return;
+		}
+		setIsPreviewEntering(true);
+		dispatch(event);
+	};
 
 	useEffect(() => {
 		if (!editor) return;
@@ -117,7 +154,10 @@ export function LinkPopover({
 			setActiveLink(link);
 			if (link) setHrefValue(link.href);
 			const nextActiveKey = link ? `${link.from}:${link.to}` : null;
-			dispatch({ type: "LINK_SESSION_CHANGED", activeKey: nextActiveKey });
+			dispatchMachineEvent({
+				type: "LINK_SESSION_CHANGED",
+				activeKey: nextActiveKey,
+			});
 			const container = containerRef.current;
 			if (!container || !link) return;
 			const floatingEl = popoverRef.current;
@@ -178,8 +218,20 @@ export function LinkPopover({
 	}, [editor, containerRef]);
 
 	useEffect(() => {
+		const floatingEl = popoverRef.current;
+		if (!floatingEl || typeof ResizeObserver === "undefined") return;
+		const observer = new ResizeObserver(() => {
+			positionUpdateRef.current?.();
+		});
+		observer.observe(floatingEl);
+		return () => {
+			observer.disconnect();
+		};
+	}, [machineState.mode]);
+
+	useEffect(() => {
 		const onFocusRequest = () => {
-			dispatch({ type: "EXPAND_REQUESTED" });
+			dispatchMachineEvent({ type: "EXPAND_REQUESTED" });
 		};
 		window.addEventListener(
 			FOCUS_LINK_POPOVER_EVENT,
@@ -210,7 +262,7 @@ export function LinkPopover({
 
 			if (isInputFocused && keymatch(event, "Enter")) {
 				event.preventDefault();
-				dispatch({ type: "ESCAPE_REQUESTED" });
+				dispatchMachineEvent({ type: "ESCAPE_REQUESTED" });
 				editor.commands.focus(undefined, { scrollIntoView: false });
 				return;
 			}
@@ -219,7 +271,7 @@ export function LinkPopover({
 				event.preventDefault();
 				const shouldReturnFocusToEditor =
 					machineState.mode === "preview" || machineState.mode === "actions";
-				dispatch({ type: "ESCAPE_REQUESTED" });
+				dispatchMachineEvent({ type: "ESCAPE_REQUESTED" });
 				if (shouldReturnFocusToEditor) {
 					queueMicrotask(() => {
 						editor.commands.focus(undefined, { scrollIntoView: false });
@@ -233,7 +285,7 @@ export function LinkPopover({
 				// Popover owns Cmd+K while visible to avoid editor shortcut races.
 				event.preventDefault();
 				event.stopPropagation();
-				dispatch({ type: "TOGGLE_ACTIONS_REQUESTED" });
+				dispatchMachineEvent({ type: "TOGGLE_ACTIONS_REQUESTED" });
 				return;
 			}
 			if (isVisible && keymatch(event, "CmdOrCtrl+Enter")) {
@@ -287,8 +339,11 @@ export function LinkPopover({
 			{machineState.mode === "preview" ? (
 				<button
 					type="button"
-					className="flex h-7 w-[165px] cursor-pointer overflow-hidden rounded-[2px] border border-zinc-300 bg-gradient-to-b from-white to-zinc-50 text-left shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
-					onClick={() => dispatch({ type: "EXPAND_REQUESTED" })}
+					className={`link-popover-preview flex h-7 cursor-pointer overflow-hidden rounded-[2px] border border-zinc-300 bg-gradient-to-b from-white to-zinc-50 text-left shadow-[0_1px_3px_rgba(0,0,0,0.1)]${isPreviewEntering ? " link-popover-preview-enter" : ""}`}
+					onTransitionEnd={() => {
+						positionUpdateRef.current?.();
+					}}
+					onClick={() => dispatchMachineEvent({ type: "EXPAND_REQUESTED" })}
 				>
 					<span
 						title={activeLink.href}
