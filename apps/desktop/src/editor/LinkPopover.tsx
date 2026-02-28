@@ -10,6 +10,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Editor } from "@tiptap/core";
 import { keymatch } from "keymatch";
 import { type RefObject, useEffect, useReducer, useRef, useState } from "react";
+import { toast } from "sonner";
 import { FOCUS_LINK_POPOVER_EVENT } from "./SmartLinkExtension";
 
 type PopoverMode = "hidden" | "preview" | "actions";
@@ -71,6 +72,15 @@ function machineReducer(
 		}
 		default:
 			return state;
+	}
+}
+
+async function copyLinkToClipboard(href: string) {
+	try {
+		await navigator.clipboard.writeText(href);
+		toast.success("Link copied");
+	} catch {
+		toast.error("Failed to copy link");
 	}
 }
 
@@ -223,18 +233,20 @@ export function LinkPopover({
 				dispatch({ type: "TOGGLE_ACTIONS_REQUESTED" });
 				return;
 			}
-
-			if (machineState.mode !== "actions") return;
-			if (keymatch(event, "CmdOrCtrl+Enter")) {
+			if (isVisible && keymatch(event, "CmdOrCtrl+Enter")) {
 				event.preventDefault();
+				event.stopPropagation();
 				void visitLink(activeLink.href);
 				return;
 			}
-			if (keymatch(event, "CmdOrCtrl+Shift+C")) {
+			if (isVisible && keymatch(event, "CmdOrCtrl+Shift+C")) {
 				event.preventDefault();
-				void navigator.clipboard.writeText(activeLink.href);
+				event.stopPropagation();
+				void copyLinkToClipboard(activeLink.href);
 				return;
 			}
+
+			if (machineState.mode !== "actions") return;
 			if (keymatch(event, "CmdOrCtrl+Backspace")) {
 				event.preventDefault();
 				removeActiveLink(editor, activeLink.from, activeLink.to);
@@ -312,7 +324,7 @@ export function LinkPopover({
 								type="button"
 								className="flex items-center justify-center gap-1 font-semibold text-zinc-700"
 								onClick={() => {
-									void navigator.clipboard.writeText(activeLink.href);
+									void copyLinkToClipboard(activeLink.href);
 								}}
 							>
 								<span>Copy</span>
@@ -345,6 +357,7 @@ function removeActiveLink(editor: Editor, from: number, to: number) {
 	if (!linkType) return;
 	const tr = editor.state.tr.removeMark(from, to, linkType);
 	editor.view.dispatch(tr);
+	editor.commands.focus(undefined, { scrollIntoView: false });
 }
 
 async function visitLink(href: string) {
