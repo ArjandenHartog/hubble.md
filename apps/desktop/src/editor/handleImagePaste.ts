@@ -16,14 +16,16 @@ async function persistAndInsertImage({
 	filePath: string;
 	imageFile: File;
 }) {
-
 	try {
 		const bytes = Array.from(new Uint8Array(await imageFile.arrayBuffer()));
-		const result = await invoke<PersistPastedImageResponse>("persist_pasted_image", {
-			filePath,
-			bytes,
-			mimeType: imageFile.type || null,
-		});
+		const result = await invoke<PersistPastedImageResponse>(
+			"persist_pasted_image",
+			{
+				filePath,
+				bytes,
+				mimeType: imageFile.type || null,
+			},
+		);
 		const relativeMarkdownPath =
 			result.relativeMarkdownPath ?? result.relative_markdown_path ?? "";
 		if (relativeMarkdownPath.trim().length === 0) {
@@ -55,7 +57,9 @@ export function handleImagePaste({
 	if (!editor) return false;
 	const items = event.clipboardData?.items;
 	if (!items) return false;
-	const imageItem = Array.from(items).find((item) => item.type.startsWith("image/"));
+	const imageItem = Array.from(items).find((item) =>
+		item.type.startsWith("image/"),
+	);
 	const imageFile = imageItem?.getAsFile();
 	if (!imageFile) return false;
 	event.preventDefault();

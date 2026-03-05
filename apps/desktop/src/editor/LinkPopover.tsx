@@ -9,9 +9,16 @@ import { getActiveLinkRange } from "@hubble.md/editor";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Editor } from "@tiptap/core";
 import { keymatch } from "keymatch";
-import MingcutePencilFill from "~icons/mingcute/pencil-fill";
-import { type RefObject, useEffect, useReducer, useRef, useState } from "react";
+import {
+	type RefObject,
+	useCallback,
+	useEffect,
+	useReducer,
+	useRef,
+	useState,
+} from "react";
 import { toast } from "sonner";
+import MingcutePencilFill from "~icons/mingcute/pencil-fill";
 import { cn } from "../lib/utils";
 import styles from "./LinkPopover.module.css";
 import { FOCUS_LINK_POPOVER_EVENT } from "./SmartLinkExtension";
@@ -133,7 +140,7 @@ export function LinkPopover({
 		return () => window.cancelAnimationFrame(frame);
 	}, [machineState.mode, isPreviewEntering]);
 
-	const dispatchMachineEvent = (event: MachineEvent) => {
+	const dispatchMachineEvent = useCallback((event: MachineEvent) => {
 		const previousState = machineStateRef.current;
 		const shouldAnimateHiddenToPreview =
 			event.type === "LINK_SESSION_CHANGED" &&
@@ -147,7 +154,7 @@ export function LinkPopover({
 		}
 		setIsPreviewEntering(true);
 		dispatch(event);
-	};
+	}, []);
 
 	useEffect(() => {
 		if (!editor) return;
@@ -217,7 +224,7 @@ export function LinkPopover({
 			window.removeEventListener("resize", update);
 			window.removeEventListener("scroll", update, true);
 		};
-	}, [editor, containerRef]);
+	}, [editor, containerRef, dispatchMachineEvent]);
 
 	useEffect(() => {
 		const onFocusRequest = () => {
@@ -233,7 +240,7 @@ export function LinkPopover({
 				onFocusRequest as EventListener,
 			);
 		};
-	}, []);
+	}, [dispatchMachineEvent]);
 
 	useEffect(() => {
 		positionUpdateRef.current?.();
@@ -299,7 +306,7 @@ export function LinkPopover({
 
 		window.addEventListener("keydown", onKeyDown, true);
 		return () => window.removeEventListener("keydown", onKeyDown, true);
-	}, [editor, activeLink, machineState.mode]);
+	}, [editor, activeLink, machineState.mode, dispatchMachineEvent]);
 
 	if (!editor || !activeLink || machineState.mode === "hidden") return null;
 
@@ -364,7 +371,10 @@ export function LinkPopover({
 										: "translate-y-0",
 								)}
 							>
-								<MingcutePencilFill aria-label="Edit link" className="h-3 w-3" />
+								<MingcutePencilFill
+									aria-label="Edit link"
+									className="h-3 w-3"
+								/>
 							</span>
 						</span>
 					</button>

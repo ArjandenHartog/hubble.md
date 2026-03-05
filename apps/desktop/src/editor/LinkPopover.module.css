@@ -12,7 +12,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-
 	.previewButton {
 		transition: none;
 	}
