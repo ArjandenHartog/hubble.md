@@ -82,3 +82,4 @@ jobs:
           prompt: ${{ steps.prompt.outputs.prompt }}
           profile: ${{ vars.WARP_AGENT_PROFILE || '' }}
           warp_api_key: ${{ secrets.WARP_API_KEY }}
+          environment_id: ${{ secrets.OZ_ENVIRONMENT_ID }}
