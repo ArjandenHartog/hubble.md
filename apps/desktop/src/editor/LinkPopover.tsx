@@ -127,6 +127,50 @@ function getLinkSession(editor: Editor) {
 	};
 }
 
+type LinkSettlementState = {
+	activeKey: string | null;
+	settledKey: string | null;
+};
+
+type LinkSettlementEvent =
+	| {
+			type: "SESSION_SYNCED";
+			activeKey: string | null;
+			shouldUnsettle: boolean;
+	  }
+	| {
+			type: "POSITION_COMPUTED";
+			activeKey: string | null;
+	  };
+
+const INITIAL_LINK_SETTLEMENT_STATE: LinkSettlementState = {
+	activeKey: null,
+	settledKey: null,
+};
+
+function linkSettlementReducer(
+	state: LinkSettlementState,
+	event: LinkSettlementEvent,
+): LinkSettlementState {
+	switch (event.type) {
+		case "SESSION_SYNCED": {
+			const { activeKey, shouldUnsettle } = event;
+			if (!activeKey) return INITIAL_LINK_SETTLEMENT_STATE;
+			if (shouldUnsettle || state.activeKey !== activeKey) {
+				return { activeKey, settledKey: null };
+			}
+			return { ...state, activeKey };
+		}
+		case "POSITION_COMPUTED": {
+			const { activeKey } = event;
+			if (!activeKey || state.activeKey !== activeKey) return state;
+			return { activeKey, settledKey: activeKey };
+		}
+		default:
+			return state;
+	}
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────
 
 async function copyLinkToClipboard(href: string) {
@@ -211,6 +255,22 @@ const PREVIEW_INLINE_SIZE_END = 174;
 const PREVIEW_HORIZONTAL_OVERFLOW =
 	(PREVIEW_SHELL_INLINE_SIZE - PREVIEW_INLINE_SIZE_END) / 2;
 
+function shouldUnsettleLink({
+	reason,
+	inputMode,
+	activeKey,
+	previousSelectionActiveKey,
+}: {
+	reason: PositionUpdateReason;
+	inputMode: "pointer" | "keyboard";
+	activeKey: string | null;
+	previousSelectionActiveKey: string | null;
+}) {
+	if (!activeKey || reason !== "selection") return false;
+	if (inputMode === "pointer") return true;
+	return previousSelectionActiveKey !== activeKey;
+}
+
 function updateFloatingPosition(
 	editor: Editor,
 	viewport: HTMLDivElement,
@@ -246,7 +306,7 @@ function updateFloatingPosition(
 		},
 	};
 
-	void computePosition(reference, floatingEl, {
+	return computePosition(reference, floatingEl, {
 		strategy: "absolute",
 		placement: "top",
 		middleware: [
@@ -262,7 +322,6 @@ function updateFloatingPosition(
 			}),
 		],
 	}).then(({ x, y }) => {
-      console.log({x, y})
 		setX(x);
 		setY(y);
 	});
@@ -298,8 +357,9 @@ export function LinkPopover({
 		((reason?: PositionUpdateReason) => void) | null
 	>(null);
 	const machineStateRef = useRef(machineState);
-	const lastActiveKeyRef = useRef<string | null>(null);
-	const [isPreviewEntering, setIsPreviewEntering] = useState(false);
+	const settlementRef = useRef(INITIAL_LINK_SETTLEMENT_STATE);
+	const lastSelectionActiveKeyRef = useRef<string | null>(null);
+	const positionRequestIdRef = useRef(0);
 	const [animatePosition, setAnimatePosition] = useState(false);
 
 	// Creation-mode state
@@ -312,33 +372,13 @@ export function LinkPopover({
 		machineStateRef.current = machineState;
 	}, [machineState]);
 
-	useEffect(() => {
-		if (machineState.mode !== "preview") {
-			setIsPreviewEntering(false);
-			return;
-		}
-		if (!isPreviewEntering) return;
-		const frame = requestAnimationFrame(() => {
-			setIsPreviewEntering(false);
-			requestAnimationFrame(() => {
-				positionUpdateRef.current?.("layout");
-			});
-		});
-		return () => window.cancelAnimationFrame(frame);
-	}, [machineState.mode, isPreviewEntering]);
-
 	const dispatchMachineEvent = useCallback((event: MachineEvent) => {
 		const previousState = machineStateRef.current;
-		const shouldAnimateHiddenToPreview =
-			event.type === "LINK_SESSION_CHANGED" &&
-			Boolean(event.activeKey) &&
-			previousState.mode === "hidden" &&
-			previousState.activeKey !== event.activeKey;
-
-		if (shouldAnimateHiddenToPreview) {
-			setIsPreviewEntering(true);
-		}
+		machineStateRef.current = machineReducer(previousState, event);
 		dispatch(event);
+	}, []);
+	const advanceSettlement = useCallback((event: LinkSettlementEvent) => {
+		settlementRef.current = linkSettlementReducer(settlementRef.current, event);
 	}, []);
 	const openCreationTitleInput = useCallback(() => {
 		if (!editor || creationCursorPos === null) return;
@@ -354,7 +394,6 @@ export function LinkPopover({
 	useEffect(() => {
 		if (!editor) return;
 		const update = (reason: PositionUpdateReason = "layout") => {
-        console.log(reason);
 			const { link, activeKey } = getLinkSession(editor);
 			setActiveLink(link);
 			if (link) setHrefValue(link.href);
@@ -366,32 +405,57 @@ export function LinkPopover({
 			const viewport = viewportRef.current;
 			const floatingEl = popoverRef.current;
 			const isCreating =
-				machineState.mode === "creating" && creationCursorPos !== null;
-			const shouldPosition = Boolean(link || machineState.pendingCreation || isCreating);
-        const switchedLinks =
-				lastActiveKeyRef.current !== null &&
-				lastActiveKeyRef.current !== activeKey;
-			const shouldAnimate =
-				reason !== "scroll" &&
-				reason !== "resize" &&
-				!(inputMode === "pointer" && reason === "selection") &&
-				!switchedLinks;
-			setAnimatePosition(shouldAnimate);
-			lastActiveKeyRef.current = activeKey;
-          console.log('from', editor.state.selection.from);
-        console.log(viewport, floatingEl, shouldPosition);
+				machineStateRef.current.mode === "creating" &&
+				creationCursorPos !== null;
+			const shouldPosition = Boolean(
+				link || machineStateRef.current.pendingCreation || isCreating,
+			);
+			const wasSettledForActiveKey =
+				activeKey !== null &&
+				settlementRef.current.activeKey === activeKey &&
+				settlementRef.current.settledKey === activeKey;
+			const shouldUnsettle = shouldUnsettleLink({
+				reason,
+				inputMode,
+				activeKey,
+				previousSelectionActiveKey: lastSelectionActiveKeyRef.current,
+			});
+
+			advanceSettlement({
+				type: "SESSION_SYNCED",
+				activeKey,
+				shouldUnsettle,
+			});
+			setAnimatePosition(
+				Boolean(activeKey) &&
+					wasSettledForActiveKey &&
+					reason !== "scroll" &&
+					reason !== "resize" &&
+					!shouldUnsettle,
+			);
+			if (reason === "selection") {
+				lastSelectionActiveKeyRef.current = activeKey;
+			}
 			if (!viewport || !floatingEl || !shouldPosition) return;
-			updateFloatingPosition(
+			const requestId = ++positionRequestIdRef.current;
+			void updateFloatingPosition(
 				editor,
 				viewport,
 				floatingEl,
 				isCreating ? creationCursorPos : editor.state.selection.from,
-				machineState.mode,
+				machineStateRef.current.mode,
 				setFloatingX,
 				setFloatingY,
-			);
+			).then(() => {
+				if (requestId !== positionRequestIdRef.current) return;
+				advanceSettlement({
+					type: "POSITION_COMPUTED",
+					activeKey,
+				});
+			});
 		};
-		//positionUpdateRef.current = update;
+		positionUpdateRef.current = update;
+		update();
 
 		const handleSelectionUpdate = () => update("selection");
 		const handleTransaction = () => update("transaction");
@@ -422,8 +486,7 @@ export function LinkPopover({
 		editor,
 		viewportRef,
 		dispatchMachineEvent,
-		machineState.mode,
-		machineState.pendingCreation,
+		advanceSettlement,
 		creationCursorPos,
 		inputMode,
 	]);
@@ -518,14 +581,20 @@ export function LinkPopover({
 				if (link) setHrefValue(link.href);
 				// Clicking anywhere else should behave like Escape: exit creation
 				// mode, then recompute visibility from the editor's real selection.
-				dispatch({ type: "ESCAPE_REQUESTED" });
-				dispatch({ type: "LINK_SESSION_CHANGED", activeKey });
+				dispatchMachineEvent({ type: "ESCAPE_REQUESTED" });
+				dispatchMachineEvent({ type: "LINK_SESSION_CHANGED", activeKey });
 			});
 		};
 
 		window.addEventListener("pointerdown", onPointerDown, true);
 		return () => window.removeEventListener("pointerdown", onPointerDown, true);
-	}, [editor, machineState.mode, creationCursorPos, openCreationTitleInput]);
+	}, [
+		editor,
+		machineState.mode,
+		creationCursorPos,
+		openCreationTitleInput,
+		dispatchMachineEvent,
+	]);
 
 	// ── Keyboard: creating mode ─────────────────────────────────────
 	useEffect(() => {
@@ -731,7 +800,6 @@ export function LinkPopover({
 						className={cn(
 							"h-7 min-w-0 justify-start gap-0 overflow-hidden border-border bg-card px-0 text-left shadow-panel inset-shadow-chrome hover:bg-card",
 							styles.previewButton,
-							isPreviewEntering && styles.previewButtonEnter,
 						)}
 						onTransitionEnd={() => {
 							positionUpdateRef.current?.();
