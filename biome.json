@@ -15,7 +15,8 @@
 			"!**/.astro",
 			"!**/*.tsbuildinfo",
 			"!**/src-tauri/target",
-			"!**/src-tauri/gen/schemas"
+			"!**/src-tauri/gen/schemas",
+			"!**/convex/_generated"
 		]
 	},
 	"formatter": {
