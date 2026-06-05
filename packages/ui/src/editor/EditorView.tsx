@@ -1,8 +1,10 @@
 import {
+	combineMarkdownFrontMatter,
 	LinkExtension,
 	listExtensions,
 	MarkdownRolloverExtension,
 	markdownToTiptapDoc,
+	parseMarkdownFrontMatter,
 	tiptapDocToMarkdown,
 } from "@hubble.md/editor";
 import type { Editor } from "@tiptap/core";
@@ -21,6 +23,10 @@ import { LinkPopover, type WikiTarget } from "./LinkPopover";
 import { SmartLinkExtension } from "./SmartLinkExtension";
 import { VirtualCursor } from "./VirtualCursor";
 import "./EditorView.css";
+import {
+	FilePropertiesPanel,
+	frontMatterStateFromMarkdown,
+} from "./FilePropertiesPanel";
 import { FormattingStatusBar } from "./FormattingStatusBar";
 import type { VirtualCursorMode } from "./virtualCursorMode";
 
@@ -42,7 +48,7 @@ export type EditorViewProps = {
 	onScrollContainerChange?: (el: HTMLDivElement | null) => void;
 	onOpenExternalLink: (href: string) => void | Promise<void>;
 	onOpenWikiLink: (target: string) => void | Promise<void>;
-	onMessage?: (message: string, kind: "success" | "error") => void;
+	onMessage?: (message: string, type: "success" | "error") => void;
 };
 
 export function EditorView({
@@ -61,7 +67,21 @@ export function EditorView({
 	onOpenWikiLink,
 	onMessage,
 }: EditorViewProps) {
-	const latestMarkdownRef = useRef(initialMarkdown);
+	const initialFrontMatter = useMemo(
+		() => parseMarkdownFrontMatter(initialMarkdown),
+		[initialMarkdown],
+	);
+	const partsRef = useRef({
+		body: initialFrontMatter.body,
+		frontMatter:
+			initialFrontMatter.type === "none" ? "" : initialFrontMatter.raw,
+	});
+	const latestMarkdownRef = useRef(
+		combineMarkdownFrontMatter(
+			partsRef.current.frontMatter,
+			partsRef.current.body,
+		),
+	);
 	const saveTimerRef = useRef<number | null>(null);
 	const editorRootRef = useRef<HTMLDivElement | null>(null);
 	const editorViewportRef = useRef<HTMLDivElement | null>(null);
@@ -69,6 +89,9 @@ export function EditorView({
 		useState<HTMLDivElement | null>(null);
 	const [cursorModeOverride, setCursorModeOverride] =
 		useState<VirtualCursorMode | null>(null);
+	const [frontMatterState, setFrontMatterState] = useState(() =>
+		frontMatterStateFromMarkdown(initialMarkdown),
+	);
 	const pathRef = useRef(path);
 	const editorRef = useRef<Editor | null>(null);
 	pathRef.current = path;
@@ -84,7 +107,10 @@ export function EditorView({
 
 	// Only used at editor creation. Later file loads sync through setContent.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: editor instance persists across file switches.
-	const initialDoc = useMemo(() => markdownToTiptapDoc(initialMarkdown), []);
+	const initialDoc = useMemo(
+		() => markdownToTiptapDoc(initialFrontMatter.body),
+		[],
+	);
 
 	const scheduleSave = useCallback(() => {
 		const savePath = pathRef.current;
@@ -112,12 +138,16 @@ export function EditorView({
 		onUpdate: ({ editor: current }) => {
 			const doc = current.getJSON() as JSONContent;
 			if (hasUploadImage(doc)) return;
-			const markdown = tiptapDocToMarkdown(doc);
+			const body = tiptapDocToMarkdown(doc);
+			partsRef.current = { ...partsRef.current, body };
+			const markdown = combineMarkdownFrontMatter(
+				partsRef.current.frontMatter,
+				body,
+			);
 			latestMarkdownRef.current = markdown;
 			onLocalChange(pathRef.current, markdown);
 			scheduleSave();
 		},
-		autofocus: "end",
 		editorProps: {
 			...editorProps,
 			attributes: {
@@ -142,23 +172,24 @@ export function EditorView({
 
 	useEffect(() => {
 		if (!editor) return;
-		latestMarkdownRef.current = initialMarkdown;
-		const current = tiptapDocToMarkdown(editor.getJSON() as JSONContent);
-		if (current !== initialMarkdown) {
-			editor.commands.setContent(markdownToTiptapDoc(initialMarkdown), {
+		if (initialMarkdown === latestMarkdownRef.current) {
+			return;
+		}
+		const parsed = parseMarkdownFrontMatter(initialMarkdown);
+		const frontMatter = parsed.type === "none" ? "" : parsed.raw;
+		partsRef.current = { body: parsed.body, frontMatter };
+		latestMarkdownRef.current = combineMarkdownFrontMatter(
+			frontMatter,
+			parsed.body,
+		);
+		setFrontMatterState(frontMatterStateFromMarkdown(initialMarkdown));
+		const currentBody = tiptapDocToMarkdown(editor.getJSON() as JSONContent);
+		if (currentBody !== parsed.body) {
+			editor.commands.setContent(markdownToTiptapDoc(parsed.body), {
 				emitUpdate: false,
 			});
 		}
 	}, [editor, initialMarkdown]);
-
-	useEffect(() => {
-		if (!editor) return;
-		const focusPath = path;
-		requestAnimationFrame(() => {
-			if (pathRef.current !== focusPath) return;
-			editor.commands.focus("end");
-		});
-	}, [editor, path]);
 
 	useEffect(() => {
 		return () => {
@@ -180,6 +211,21 @@ export function EditorView({
 				className="relative min-h-0 flex-1 overflow-auto overscroll-contain"
 				ref={setEditorViewport}
 			>
+				<FilePropertiesPanel
+					path={path}
+					state={frontMatterState}
+					onChange={(nextState, frontMatter) => {
+						setFrontMatterState(nextState);
+						partsRef.current = { ...partsRef.current, frontMatter };
+						const markdown = combineMarkdownFrontMatter(
+							frontMatter,
+							partsRef.current.body,
+						);
+						latestMarkdownRef.current = markdown;
+						onLocalChange(pathRef.current, markdown);
+						scheduleSave();
+					}}
+				/>
 				<EditorContent editor={editor} className="h-full" />
 				<VirtualCursor
 					editor={editor}

@@ -3,13 +3,20 @@ import type * as React from "react";
 
 import { cn } from "../lib/utils";
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+type InputProps = React.ComponentProps<"input"> & {
+	variant?: "default" | "ghost";
+};
+
+function Input({ className, type, variant = "default", ...props }: InputProps) {
 	return (
 		<InputPrimitive
 			type={type}
 			data-slot="input"
 			className={cn(
-				"h-8 w-full min-w-0 rounded-sm border border-input bg-card px-2.5 py-1 text-[11px] shadow-panel inset-shadow-chrome transition-[color,background-color,border-color,box-shadow] duration-[var(--default-transition-duration)] ease-spring-snappy outline-hidden file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-[11px] file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20 dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
+				"h-8 w-full min-w-0 rounded-sm px-2.5 py-1 text-[11px] transition-[color,background-color,border-color,box-shadow] duration-[var(--default-transition-duration)] ease-spring-snappy outline-hidden file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-[11px] file:font-medium file:text-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+				variant === "ghost"
+					? "border border-transparent bg-transparent shadow-none inset-shadow-none focus-visible:border-transparent focus-visible:bg-transparent focus-visible:ring-0 aria-invalid:border-destructive"
+					: "border border-input bg-card shadow-panel inset-shadow-chrome focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/40 disabled:bg-input/50 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20 dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
 				className,
 			)}
 			{...props}

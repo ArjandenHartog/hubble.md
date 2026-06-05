@@ -20,6 +20,10 @@ A folder open in the desktop app that is *not* bound to a Workspace — no `.hub
 
 A markdown document on the local filesystem or in a Workspace.
 
+### File Properties
+
+User-facing structured fields attached to a Markdown File. File Properties are distinct from the document body and are stored in the file's front matter.
+
 ### Loose File
 
 A Markdown File opened directly from the filesystem, not through a Workspace Folder or Plain Folder. The desktop app can read and edit it with access scoped to the file and nearby assets; nothing syncs.

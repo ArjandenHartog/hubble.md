@@ -1,5 +1,18 @@
 export { FakeSelectionExtension } from "./FakeSelectionExtension";
 export {
+	combineMarkdownFrontMatter,
+	detectFilePropertyType,
+	type FileProperty,
+	type FilePropertyType,
+	isDateString,
+	isSimplePropertyKey,
+	type ParsedFrontMatter,
+	parseDateInput,
+	parseMarkdownFrontMatter,
+	serializeFrontMatter,
+	setMarkdownFrontMatter,
+} from "./frontMatter";
+export {
 	createLinkMark,
 	getActiveLinkRange,
 	getLinkHrefFromAttrs,
