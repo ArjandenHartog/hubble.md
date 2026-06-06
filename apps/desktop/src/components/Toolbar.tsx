@@ -1,11 +1,10 @@
 import { Menu } from "@base-ui/react/menu";
-import { Button, NewNoteButton, Toolbar as SharedToolbar } from "@hubble.md/ui";
+import { Button, Toolbar as SharedToolbar } from "@hubble.md/ui";
 import { useStoreValue } from "@simplestack/store/react";
 import type { CSSProperties } from "react";
 import { toast } from "sonner";
 import MingcuteCopy2Line from "~icons/mingcute/copy-2-line";
 import MingcuteMore2Line from "~icons/mingcute/more-2-line";
-import { createMarkdownFile } from "../fileActions";
 import { renameCurrentMarkdownFile, toggleSidebar } from "../store/actions";
 import {
 	currentPathStore,
@@ -37,11 +36,8 @@ export function Toolbar({
 				void renameCurrentMarkdownFile(nextName)
 			}
 			rightSlot={
-				workspacePath ? (
-					<div className="flex items-center gap-1">
-						{currentPath && <NoteActionsMenu path={currentPath} />}
-						<NewNoteButton onClick={() => void createMarkdownFile()} />
-					</div>
+				workspacePath && currentPath ? (
+					<NoteActionsMenu path={currentPath} />
 				) : undefined
 			}
 		/>

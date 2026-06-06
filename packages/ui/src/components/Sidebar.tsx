@@ -1,5 +1,5 @@
 import { Select } from "@base-ui/react/select";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import MingcuteAzSortAscendingLettersLine from "~icons/mingcute/az-sort-ascending-letters-line";
 import MingcuteCheckLine from "~icons/mingcute/check-line";
 import MingcuteSortDescendingLine from "~icons/mingcute/sort-descending-line";
@@ -19,6 +19,7 @@ export function Sidebar({
 	pendingPath,
 	sortMode,
 	header,
+	footer,
 	emptyState,
 	getDisplayPath = (path) => path,
 	onSortModeChange,
@@ -29,12 +30,14 @@ export function Sidebar({
 	pendingPath?: string | null;
 	sortMode: SidebarSortMode;
 	header?: React.ReactNode;
+	footer?: React.ReactNode;
 	emptyState?: React.ReactNode;
 	getDisplayPath?: (path: string) => string;
 	onSortModeChange: (mode: SidebarSortMode) => void;
 	onSelectFile: (path: string) => void;
 }) {
 	const navRef = useRef<HTMLDivElement>(null);
+	const [showFooterDivider, setShowFooterDivider] = useState(false);
 	const highlightPath = pendingPath ?? currentPath;
 	const sorted = [...files].sort((a, b) => {
 		if (sortMode === "recent") return (b.modifiedAt ?? 0) - (a.modifiedAt ?? 0);
@@ -57,6 +60,37 @@ export function Sidebar({
 		if (highlightPath || sorted.length === 0 || focusedIndex !== null) return;
 		setFocusedIndex(0);
 	}, [focusedIndex, highlightPath, sorted.length, setFocusedIndex]);
+
+	useEffect(() => {
+		const nav = navRef.current;
+		if (!nav || !footer) {
+			setShowFooterDivider(false);
+			return;
+		}
+
+		const update = () => {
+			const maxScrollTop = Math.max(nav.scrollHeight - nav.clientHeight, 0);
+			const hasMeaningfulOverflow = maxScrollTop > 8;
+			const isAtBottom = maxScrollTop - nav.scrollTop <= 2;
+			setShowFooterDivider(hasMeaningfulOverflow && !isAtBottom);
+		};
+
+		update();
+		requestAnimationFrame(update);
+		const resizeObserver = new ResizeObserver(update);
+		resizeObserver.observe(nav);
+		nav.addEventListener("scroll", update, { passive: true });
+		window.addEventListener("resize", update);
+		return () => {
+			resizeObserver.disconnect();
+			nav.removeEventListener("scroll", update);
+			window.removeEventListener("resize", update);
+		};
+	}, [footer]);
+
+	const footerDividerClass = showFooterDivider
+		? "[border-block-start:1px_dashed_var(--border)]"
+		: "[border-block-start:1px_solid_transparent]";
 
 	return (
 		<aside className="flex w-[220px] shrink-0 flex-col overflow-hidden border-e border-sidebar-border bg-sidebar">
@@ -122,7 +156,7 @@ export function Sidebar({
 							data-sidebar-index={index}
 							aria-selected={isFocused}
 							className={cn(
-								"block w-full truncate border-none bg-transparent px-2.5 py-1 text-start text-[13px] text-sidebar-foreground hover:bg-sidebar-accent",
+								"block w-full truncate border-none bg-transparent [padding-block:0.25rem] [padding-inline:1rem] text-start text-[13px] text-sidebar-foreground hover:bg-sidebar-accent",
 								isActive &&
 									"bg-sidebar-accent text-sidebar-accent-foreground font-medium",
 								isFocused && "bg-sidebar-accent",
@@ -140,6 +174,7 @@ export function Sidebar({
 					);
 				})}
 			</div>
+			{footer && <div className={footerDividerClass}>{footer}</div>}
 		</aside>
 	);
 }
