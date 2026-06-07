@@ -17,11 +17,15 @@ function isEditableElement(el: Element | null): boolean {
 export function useSidebarKeyboardNav<T>({
 	items,
 	onSelect,
+	onExpand,
+	onCollapse,
 	navRef,
 	activeIndex = -1,
 }: {
 	items: T[];
 	onSelect: (item: T) => void;
+	onExpand?: (item: T) => void;
+	onCollapse?: (item: T) => void;
 	navRef: RefObject<HTMLElement | null>;
 	activeIndex?: number;
 }) {
@@ -66,11 +70,28 @@ export function useSidebarKeyboardNav<T>({
 					});
 					break;
 				}
-				case "Enter": {
+				case "Enter":
+				case " ": {
 					const idx = focusedIndexRef.current;
 					if (idx !== null && items[idx]) {
 						event.preventDefault();
 						onSelect(items[idx]);
+					}
+					break;
+				}
+				case "ArrowRight": {
+					const idx = focusedIndexRef.current;
+					if (idx !== null && items[idx] && onExpand) {
+						event.preventDefault();
+						onExpand(items[idx]);
+					}
+					break;
+				}
+				case "ArrowLeft": {
+					const idx = focusedIndexRef.current;
+					if (idx !== null && items[idx] && onCollapse) {
+						event.preventDefault();
+						onCollapse(items[idx]);
 					}
 					break;
 				}
@@ -82,7 +103,7 @@ export function useSidebarKeyboardNav<T>({
 				}
 			}
 		},
-		[items, onSelect, activeIndex],
+		[items, onSelect, onExpand, onCollapse, activeIndex],
 	);
 
 	return { focusedIndex, setFocusedIndex, onKeyDown };

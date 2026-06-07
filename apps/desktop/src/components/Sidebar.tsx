@@ -52,6 +52,7 @@ export function Sidebar() {
 			}))}
 			currentPath={currentPath ?? null}
 			sortMode={sortMode}
+			storageScope={workspacePath}
 			header={<WorkspaceSwitcher />}
 			footer={<NewNoteListButton />}
 			getDisplayPath={relativePath}

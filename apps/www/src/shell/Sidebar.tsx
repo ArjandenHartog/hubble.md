@@ -39,6 +39,7 @@ export function Sidebar({
 			currentPath={currentPath ?? null}
 			pendingPath={pendingPath}
 			sortMode={sortMode}
+			storageScope={workspaceId}
 			header={
 				<WorkspaceSwitcher
 					url={url}

@@ -2,23 +2,27 @@ import { Select } from "@base-ui/react/select";
 import { useCallback, useEffect, useRef, useState } from "react";
 import MingcuteAzSortAscendingLettersLine from "~icons/mingcute/az-sort-ascending-letters-line";
 import MingcuteCheckLine from "~icons/mingcute/check-line";
+import MingcuteRightLine from "~icons/mingcute/right-line";
 import MingcuteSortDescendingLine from "~icons/mingcute/sort-descending-line";
 import { shouldShowFooterDivider } from "../lib/scrollOverflow";
 import { cn } from "../lib/utils";
 import { Button } from "../primitives/button";
 import { useSidebarKeyboardNav } from "./useSidebarKeyboardNav";
+import {
+	type SidebarFile,
+	type SidebarRow,
+	type SidebarSortMode,
+	useSidebarTree,
+} from "./useSidebarTree";
 
-export type SidebarSortMode = "alpha" | "recent";
-export type SidebarFile = {
-	path: string;
-	modifiedAt?: number;
-};
+export type { SidebarFile, SidebarSortMode };
 
 export function Sidebar({
 	files,
 	currentPath,
 	pendingPath,
 	sortMode,
+	storageScope,
 	header,
 	footer,
 	emptyState,
@@ -30,6 +34,8 @@ export function Sidebar({
 	currentPath: string | null;
 	pendingPath?: string | null;
 	sortMode: SidebarSortMode;
+	/** Stable key used to persist folder expansion for one workspace/open folder. */
+	storageScope?: string | null;
 	header?: React.ReactNode;
 	footer?: React.ReactNode;
 	emptyState?: React.ReactNode;
@@ -40,26 +46,48 @@ export function Sidebar({
 	const navRef = useRef<HTMLDivElement>(null);
 	const [showFooterDivider, setShowFooterDivider] = useState(false);
 	const highlightPath = pendingPath ?? currentPath;
-	const sorted = [...files].sort((a, b) => {
-		if (sortMode === "recent") return (b.modifiedAt ?? 0) - (a.modifiedAt ?? 0);
-		return a.path.localeCompare(b.path);
+	const { collapseFolder, expandFolder, rows, toggleFolder } = useSidebarTree({
+		files,
+		getDisplayPath,
+		highlightPath,
+		sortMode,
+		storageScope,
 	});
-	const selectFile = useCallback(
-		(file: SidebarFile) => onSelectFile(file.path),
-		[onSelectFile],
+	const activateRow = useCallback(
+		(row: SidebarRow) => {
+			if (row.kind === "file") onSelectFile(row.file.path);
+			else toggleFolder(row.id);
+		},
+		[onSelectFile, toggleFolder],
 	);
-	const activeIndex = sorted.findIndex((f) => f.path === highlightPath);
+	const expandRow = useCallback(
+		(row: SidebarRow) => {
+			if (row.kind === "folder") expandFolder(row.id);
+		},
+		[expandFolder],
+	);
+	const collapseRow = useCallback(
+		(row: SidebarRow) => {
+			if (row.kind === "folder") collapseFolder(row.id);
+		},
+		[collapseFolder],
+	);
+	const activeIndex = rows.findIndex(
+		(row) => row.kind === "file" && row.file.path === highlightPath,
+	);
 	const { focusedIndex, setFocusedIndex, onKeyDown } = useSidebarKeyboardNav({
-		items: sorted,
-		onSelect: selectFile,
+		items: rows,
+		onSelect: activateRow,
+		onExpand: expandRow,
+		onCollapse: collapseRow,
 		navRef,
 		activeIndex,
 	});
 
 	useEffect(() => {
-		if (highlightPath || sorted.length === 0 || focusedIndex !== null) return;
+		if (highlightPath || rows.length === 0 || focusedIndex !== null) return;
 		setFocusedIndex(0);
-	}, [focusedIndex, highlightPath, sorted.length, setFocusedIndex]);
+	}, [focusedIndex, highlightPath, rows.length, setFocusedIndex]);
 
 	const updateFooterDivider = useCallback(() => {
 		const nav = navRef.current;
@@ -142,39 +170,55 @@ export function Sidebar({
 			</div>
 			<div
 				ref={navRef}
-				role="listbox"
+				role="tree"
 				className="flex-1 overflow-y-auto overscroll-contain py-1 outline-none"
 				tabIndex={0}
 				onKeyDown={onKeyDown}
 				data-sidebar-nav
 			>
-				{sorted.length === 0 && emptyState}
-				{sorted.map((f, index) => {
-					const rel = getDisplayPath(f.path);
-					const isActive = f.path === highlightPath;
+				{rows.length === 0 && emptyState}
+				{rows.map((row, index) => {
+					const isActive =
+						row.kind === "file" && row.file.path === highlightPath;
 					const isFocused = focusedIndex === index;
 					return (
 						<button
-							key={f.path}
+							key={row.kind === "folder" ? row.id : row.file.path}
 							type="button"
-							role="option"
+							role="treeitem"
 							data-sidebar-index={index}
-							aria-selected={isFocused}
+							aria-expanded={row.kind === "folder" ? row.expanded : undefined}
+							aria-selected={isActive}
 							className={cn(
-								"block w-full truncate border-none bg-transparent [padding-block:0.25rem] [padding-inline:1rem] text-start text-[13px] text-sidebar-foreground hover:bg-sidebar-accent",
+								"flex w-full items-center gap-1 truncate border-none bg-transparent [padding-block:0.25rem] [padding-inline-end:0.5rem] text-start text-[13px] text-sidebar-foreground hover:bg-sidebar-accent",
 								isActive &&
 									"bg-sidebar-accent text-sidebar-accent-foreground font-medium",
 								isFocused && "bg-sidebar-accent",
 							)}
+							style={
+								{
+									paddingInlineStart: `${0.5 + row.depth * 0.75}rem`,
+								} as React.CSSProperties
+							}
 							onClick={() => {
-								onSelectFile(f.path);
+								activateRow(row);
 								requestAnimationFrame(() => navRef.current?.focus());
 							}}
 							onPointerEnter={() => setFocusedIndex(index)}
 							onPointerLeave={() => setFocusedIndex(null)}
-							title={rel}
+							title={row.label}
 						>
-							{rel}
+							<span className="inline-flex size-3 shrink-0 items-center justify-center text-muted-foreground">
+								{row.kind === "folder" && (
+									<MingcuteRightLine
+										className={cn(
+											"size-3 transition-transform duration-150 ease-out",
+											row.expanded && "rotate-90",
+										)}
+									/>
+								)}
+							</span>
+							<span className="truncate">{row.label}</span>
 						</button>
 					);
 				})}
