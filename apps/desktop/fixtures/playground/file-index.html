@@ -3,105 +3,13 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<style>
-			:root {
-				color: #1f2933;
-				font-family:
-					Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-					"Segoe UI", sans-serif;
-			}
-
-			* {
-				box-sizing: border-box;
-			}
-
-			body {
-				margin: 0;
-				padding-block: 24px;
-				padding-inline: 24px;
-			}
-
-			.file-index {
-				background: #f8faf9;
-				border: 1px solid #c7d7cb;
-				border-radius: 8px;
-				padding-block: 20px;
-				padding-inline: 20px;
-			}
-
-			.header {
-				align-items: center;
-				display: flex;
-				gap: 12px;
-				justify-content: space-between;
-				margin-block-end: 16px;
-			}
-
-			h1 {
-				font-size: 24px;
-				line-height: 1.2;
-				margin: 0;
-			}
-
-			.controls {
-				display: flex;
-				gap: 8px;
-			}
-
-			button {
-				background: white;
-				border: 1px solid #a8bdad;
-				border-radius: 8px;
-				color: #1f2933;
-				cursor: pointer;
-				font: inherit;
-				padding-block: 8px;
-				padding-inline: 12px;
-			}
-
-			button[aria-pressed="true"] {
-				background: #123c2d;
-				border-color: #123c2d;
-				color: white;
-			}
-
-			ul {
-				display: grid;
-				gap: 8px;
-				list-style: none;
-				margin: 0;
-				padding: 0;
-			}
-
-			li {
-				background: white;
-				border: 1px solid #d7e3da;
-				border-radius: 8px;
-				display: grid;
-				gap: 4px;
-				padding-block: 12px;
-				padding-inline: 14px;
-			}
-
-			.path {
-				font-size: 15px;
-				font-weight: 700;
-			}
-
-			.meta {
-				color: #607067;
-				font-size: 13px;
-			}
-
-			.status {
-				color: #607067;
-				margin: 0;
-			}
-		</style>
+		<script src="./vendor/hubble-iframe-runtime.js"></script>
+		<script src="./vendor/tailwindcss-4.3.1-browser.global.js"></script>
+		<script src="./vendor/alpine-3.15.12.min.js" defer></script>
 	</head>
-	<body>
+	<body class="m-0 overflow-hidden px-6 py-6 font-sans text-slate-800">
 		<div
-			class="file-index"
+			class="rounded-lg border border-emerald-200 bg-emerald-50/70 px-5 py-5"
 			x-data="{
 				files: [],
 				sort: 'recent',
@@ -126,10 +34,11 @@
 				}
 			}"
 		>
-			<div class="header">
-				<h1>Workspace files</h1>
-				<div class="controls" aria-label="Sort files">
+			<div class="mb-4 flex items-center justify-between gap-3">
+				<h1 class="m-0 text-2xl leading-tight font-bold">Workspace files</h1>
+				<div class="flex gap-2" aria-label="Sort files">
 					<button
+						class="cursor-pointer rounded-lg border border-emerald-300 bg-white px-3 py-2 text-slate-800 aria-pressed:border-emerald-950 aria-pressed:bg-emerald-950 aria-pressed:text-white"
 						type="button"
 						:aria-pressed="sort === 'recent'"
 						@click="sort = 'recent'"
@@ -137,6 +46,7 @@
 						Recent
 					</button>
 					<button
+						class="cursor-pointer rounded-lg border border-emerald-300 bg-white px-3 py-2 text-slate-800 aria-pressed:border-emerald-950 aria-pressed:bg-emerald-950 aria-pressed:text-white"
 						type="button"
 						:aria-pressed="sort === 'name'"
 						@click="sort = 'name'"
@@ -146,15 +56,17 @@
 				</div>
 			</div>
 
-			<p class="status" x-show="!error && files.length === 0">Loading files...</p>
-			<p class="status" x-show="error" x-text="error"></p>
+			<p class="m-0 text-slate-500" x-show="!error && files.length === 0">
+				Loading files...
+			</p>
+			<p class="m-0 text-slate-500" x-show="error" x-text="error"></p>
 
-			<ul x-show="!error && files.length > 0">
+			<ul class="m-0 grid list-none gap-2 p-0" x-show="!error && files.length > 0">
 				<template x-for="file in sortedFiles" :key="file.path">
-					<li>
-						<span class="path" x-text="file.path"></span>
+					<li class="grid gap-1 rounded-lg border border-emerald-100 bg-white px-3.5 py-3">
+						<span class="text-[15px] font-bold" x-text="file.path"></span>
 						<span
-							class="meta"
+							class="text-[13px] text-slate-500"
 							x-text="`${date(file.modified_at)} · ${file.size} bytes`"
 						></span>
 					</li>

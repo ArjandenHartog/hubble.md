@@ -4,11 +4,9 @@ import {
 	type ReactNodeViewProps,
 	ReactNodeViewRenderer,
 } from "@tiptap/react";
-import alpineRuntime from "alpinejs/dist/cdn.min.js?raw";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { desktopApi } from "../desktopApi";
 import "./EmbedExtension.css";
-import iframeRuntime from "./iframeRuntime.js?raw";
 
 type EmbedAttrs = {
 	kind?: "bundle" | "iframe";
@@ -47,6 +45,7 @@ type IframeRequest = {
 	id?: unknown;
 	method?: unknown;
 	params?: unknown;
+	token?: unknown;
 };
 
 declare global {
@@ -227,14 +226,15 @@ function IframeEmbedNodeView({
 	workspacePath: string | null;
 }) {
 	const iframeRef = useRef<HTMLIFrameElement | null>(null);
-	const [srcDoc, setSrcDoc] = useState("");
+	const tokenRef = useRef(crypto.randomUUID());
+	const [iframeSrc, setIframeSrc] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [height, setHeight] = useState(MIN_IFRAME_HEIGHT);
 	const src = attrs.src ?? "";
 
 	useEffect(() => {
 		let cancelled = false;
-		setSrcDoc("");
+		setIframeSrc("");
 		setError(null);
 		setHeight(MIN_IFRAME_HEIGHT);
 
@@ -243,14 +243,20 @@ function IframeEmbedNodeView({
 			return;
 		}
 
-		const htmlPath = joinPath(dirname(filePath), src);
+		const { path, suffix } = splitIframeSrc(src);
+		const htmlPath = joinPath(dirname(filePath), path);
+		const rootPath = workspacePath ?? dirname(filePath);
 		void desktopApi
 			.resolvePath(htmlPath)
-			.then((absolutePath) => desktopApi.readFileText(absolutePath))
-			.then((html) => {
-				if (!cancelled) {
-					setSrcDoc(injectIframeRuntime(html));
+			.then(async (absolutePath) => {
+				const absoluteRootPath = await desktopApi.resolvePath(rootPath);
+				if (!isPathWithin(absoluteRootPath, absolutePath)) {
+					throw new Error("Iframe embed src must stay inside the workspace.");
 				}
+				return `${toAssetUrl(absolutePath)}${suffix}`;
+			})
+			.then((iframeSrc) => {
+				if (!cancelled) setIframeSrc(iframeSrc);
 			})
 			.catch((error) => {
 				if (!cancelled) {
@@ -261,15 +267,16 @@ function IframeEmbedNodeView({
 		return () => {
 			cancelled = true;
 		};
-	}, [filePath, src]);
+	}, [filePath, src, workspacePath]);
 
-	useEffect(() => {
-		const iframe = iframeRef.current;
-		if (!iframe) return;
-
+	useLayoutEffect(() => {
 		const onMessage = (event: MessageEvent) => {
-			if (event.source !== iframe.contentWindow) return;
-			const data = event.data as { type?: unknown; height?: unknown } | null;
+			const data = event.data as {
+				type?: unknown;
+				height?: unknown;
+				token?: unknown;
+			} | null;
+			if (!isMessageForIframe(data, iframeRef.current)) return;
 			if (!data || data.type !== "hubble:embed-height") return;
 			const height = Number(data.height);
 			if (!Number.isFinite(height)) return;
@@ -284,16 +291,14 @@ function IframeEmbedNodeView({
 		return () => window.removeEventListener("message", onMessage);
 	}, []);
 
-	useEffect(() => {
-		const iframe = iframeRef.current;
-		if (!iframe) return;
-
+	useLayoutEffect(() => {
 		const onMessage = (event: MessageEvent) => {
-			if (event.source !== iframe.contentWindow) return;
 			const request = event.data as IframeRequest | null;
+			if (!isMessageForIframe(request, iframeRef.current)) return;
 			if (!request || request.type !== "hubble:request") return;
 			void handleIframeRequest(request, workspacePath).then((response) => {
-				iframe.contentWindow?.postMessage(
+				if (!isWindowProxy(event.source)) return;
+				event.source.postMessage(
 					{ ...response, id: request.id, type: "hubble:response" },
 					"*",
 				);
@@ -313,15 +318,27 @@ function IframeEmbedNodeView({
 					ref={iframeRef}
 					className="hubble-iframe-embed"
 					height={height}
+					name={tokenRef.current}
 					title={src || "Hubble iframe embed"}
-					sandbox="allow-scripts allow-same-origin"
-					srcDoc={srcDoc}
+					sandbox="allow-scripts"
+					src={iframeSrc}
 					style={{ blockSize: `${height}px` }}
 					width="100%"
 				/>
 			)}
 		</NodeViewWrapper>
 	);
+}
+
+function isWindowProxy(source: MessageEventSource | null): source is Window {
+	return Boolean(source && "postMessage" in source);
+}
+
+function isMessageForIframe(
+	data: { token?: unknown } | null,
+	iframe: HTMLIFrameElement | null,
+): boolean {
+	return typeof data?.token === "string" && data.token === iframe?.name;
 }
 
 async function loadEmbedBundle(workspacePath: string, name: string) {
@@ -409,10 +426,9 @@ const BLOCKED_IFRAME_SCHEME = /^(file:|data:|javascript:|hubble-asset:)/i;
 const LOCAL_IFRAME_SRC = /^(\.{1,2}\/|[^:/\\]+(?:\/|$)).*\.html(?:[?#].*)?$/i;
 
 /**
- * Iframe embeds may point to workspace-local .html files only. Paths are
- * resolved relative to the Markdown file and get Hubble's injected mini-app
- * runtime. Remote URLs, app-internal schemes, inline code, and local absolute
- * paths are rejected.
+ * Iframe embeds may point to workspace-local .html files only. Paths resolve
+ * relative to the Markdown file; remote URLs, app-internal schemes, inline code,
+ * and local absolute paths are rejected.
  */
 function isValidIframeSrc(src: string): boolean {
 	if (!src.trim()) return false;
@@ -483,17 +499,37 @@ function isSafeWorkspacePath(path: string): boolean {
 		.some((part) => part === "" || part === "." || part === "..");
 }
 
-function injectIframeRuntime(html: string): string {
-	const runtime = `<style>
-html,
-body {
-  overflow: hidden;
+function splitIframeSrc(src: string): { path: string; suffix: string } {
+	const suffixIndex = src.search(/[?#]/);
+	if (suffixIndex === -1) return { path: src, suffix: "" };
+	return {
+		path: src.slice(0, suffixIndex),
+		suffix: src.slice(suffixIndex),
+	};
 }
-</style>
-<script>${iframeRuntime}</script>
-${alpineRuntime ? `<script defer>${alpineRuntime}</script>` : ""}`;
-	if (/<\/body\s*>/i.test(html)) {
-		return html.replace(/<\/body\s*>/i, `${runtime}</body>`);
-	}
-	return `${html}${runtime}`;
+
+function isPathWithin(rootPath: string, path: string): boolean {
+	const root = normalizePath(rootPath);
+	const candidate = normalizePath(path);
+	return candidate === root || candidate.startsWith(`${root}/`);
+}
+
+function normalizePath(path: string): string {
+	const normalized = path.split("\\").join("/").replace(/\/+$/, "");
+	return normalized || "/";
+}
+
+function toAssetUrl(path: string): string {
+	const normalized = path.split("\\").join("/");
+	const absolutePath = normalized.startsWith("/")
+		? normalized
+		: `/${normalized}`;
+	const encodedPath = absolutePath
+		.split("/")
+		.map((part) => encodeURIComponent(part))
+		.join("/");
+	const pathWithEncodedRoot = encodedPath.startsWith("/")
+		? `%2F${encodedPath.slice(1)}`
+		: encodedPath;
+	return `hubble-asset://local/${pathWithEncodedRoot}`;
 }

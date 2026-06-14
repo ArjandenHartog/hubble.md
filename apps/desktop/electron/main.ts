@@ -301,6 +301,31 @@ function assetPathFromUrl(url: URL): string {
 	return decodeURIComponent(encodedPath);
 }
 
+function assetContentType(filePath: string): string {
+	switch (path.extname(filePath).toLowerCase()) {
+		case ".css":
+			return "text/css; charset=utf-8";
+		case ".html":
+			return "text/html; charset=utf-8";
+		case ".js":
+		case ".mjs":
+			return "text/javascript; charset=utf-8";
+		case ".json":
+			return "application/json; charset=utf-8";
+		case ".svg":
+			return "image/svg+xml";
+		case ".jpg":
+		case ".jpeg":
+			return "image/jpeg";
+		case ".png":
+			return "image/png";
+		case ".webp":
+			return "image/webp";
+		default:
+			return "application/octet-stream";
+	}
+}
+
 function buildMenu() {
 	const template: Electron.MenuItemConstructorOptions[] = [
 		{
@@ -961,7 +986,15 @@ if (!singleInstanceLock) {
 		protocol.handle("hubble-asset", (request) => {
 			const url = new URL(request.url);
 			const filePath = assertGranted(assetPathFromUrl(url));
-			return new Response(fsSync.readFileSync(filePath));
+			// HTML iframe embeds use this protocol as their base URL, so relative
+			// scripts, stylesheets, images, and fetches resolve to granted files.
+			// Disable caching because these files are edited directly in workspaces.
+			return new Response(fsSync.readFileSync(filePath), {
+				headers: {
+					"cache-control": "no-store",
+					"content-type": assetContentType(filePath),
+				},
+			});
 		});
 		registerIpc();
 		buildMenu();

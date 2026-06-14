@@ -4,6 +4,7 @@ type MockDesktopApi = {
 	readFileText: ReturnType<typeof vi.fn>;
 	writeFileText: ReturnType<typeof vi.fn>;
 	listDirectory: ReturnType<typeof vi.fn>;
+	renameFile: ReturnType<typeof vi.fn>;
 };
 
 function createDesktopApi(): MockDesktopApi {
@@ -11,6 +12,7 @@ function createDesktopApi(): MockDesktopApi {
 		readFileText: vi.fn(async () => "before"),
 		writeFileText: vi.fn(async () => {}),
 		listDirectory: vi.fn(async () => []),
+		renameFile: vi.fn(async () => {}),
 	};
 }
 
@@ -112,5 +114,52 @@ describe("desktop savePathContent", () => {
 		expect(viewerStore.get().content).toBe("draft 2");
 		expect(viewerStore.get().diskContent).toBe("draft 2");
 		expect(viewerStore.get().externalChange).toEqual({ kind: "none" });
+	});
+});
+
+describe("desktop renameMarkdownFile", () => {
+	beforeEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("reopens the active file from its renamed path", async () => {
+		const api = createDesktopApi();
+		api.readFileText.mockResolvedValue("embed content");
+		api.listDirectory.mockResolvedValue([
+			{ path: "/workspace/renamed.md", modified_at: 1 },
+		]);
+		const { appStore, renameMarkdownFile, viewerStore, workspaceStore } =
+			await loadStoreActions(api);
+		const path = "/workspace/original.md";
+
+		appStore.set((current) => ({
+			...current,
+			workspace: {
+				...current.workspace,
+				workspacePath: "/workspace",
+				files: [{ path, modified_at: 1 }],
+				lastOpenedPaths: { "/workspace": path },
+			},
+			document: {
+				...current.document,
+				currentPath: path,
+				lastOpenedPath: path,
+				content: "embed content",
+				diskContent: "embed content",
+				externalChange: { kind: "none" },
+				status: "ready",
+				error: null,
+			},
+		}));
+
+		await renameMarkdownFile(path, "renamed");
+
+		expect(api.renameFile).toHaveBeenCalledWith(path, "/workspace/renamed.md");
+		expect(api.readFileText).toHaveBeenLastCalledWith("/workspace/renamed.md");
+		expect(viewerStore.get().currentPath).toBe("/workspace/renamed.md");
+		expect(viewerStore.get().content).toBe("embed content");
+		expect(workspaceStore.get().lastOpenedPaths["/workspace"]).toBe(
+			"/workspace/renamed.md",
+		);
 	});
 });
