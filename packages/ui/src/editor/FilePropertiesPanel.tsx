@@ -8,7 +8,7 @@ import {
 	parseMarkdownFrontMatter,
 	serializeFrontMatter,
 } from "@hubble.md/editor";
-import { useEffect, useRef, useState } from "react";
+import { type FocusEvent, useEffect, useRef, useState } from "react";
 import MingcuteAddLine from "~icons/mingcute/add-line";
 import MingcuteCalendarLine from "~icons/mingcute/calendar-line";
 import MingcuteCheckLine from "~icons/mingcute/check-line";
@@ -191,14 +191,26 @@ function PropertyRow({
 }) {
 	const overrideKey = `${path}\u0000${rowId}`;
 	const type = typeOverrides.get(overrideKey) ?? property.type;
+	const rowRef = useRef<HTMLDivElement>(null);
 	const nameInputRef = useRef<HTMLInputElement>(null);
+	const removeEmptyIfLeavingRow = (event: FocusEvent<HTMLElement>) => {
+		if (!isEmptyDraftProperty(property)) return;
+		const nextFocus = event.relatedTarget;
+		if (nextFocus instanceof Node && rowRef.current?.contains(nextFocus)) {
+			return;
+		}
+		onDelete();
+	};
 	useEffect(() => {
 		if (!autoFocusName) return;
 		nameInputRef.current?.focus();
 		onNameAutoFocused();
 	}, [autoFocusName, onNameAutoFocused]);
 	return (
-		<div className="group/property grid grid-cols-[minmax(7rem,0.75fr)_2fr_auto] items-start gap-2">
+		<div
+			ref={rowRef}
+			className="group/property grid grid-cols-[minmax(7rem,0.75fr)_2fr_auto] items-start gap-2"
+		>
 			<div className="flex min-w-0 items-center gap-1">
 				<PropertyTypeSelect
 					value={type}
@@ -223,9 +235,7 @@ function PropertyRow({
 					onChange={(event) =>
 						onChange({ ...property, key: event.target.value })
 					}
-					onBlur={() => {
-						if (isEmptyDraftProperty(property)) onDelete();
-					}}
+					onBlur={removeEmptyIfLeavingRow}
 					onKeyDown={(event) => {
 						if (event.key === "Escape" && isEmptyDraftProperty(property)) {
 							event.preventDefault();
@@ -248,9 +258,8 @@ function PropertyRow({
 						}
 						onChange(next);
 					}}
-					onRemoveEmpty={(options) => {
-						if (isEmptyDraftProperty(property)) onDelete(options);
-					}}
+					onRemoveEmpty={onDelete}
+					onRemoveEmptyBlur={removeEmptyIfLeavingRow}
 				/>
 			</div>
 			<button
@@ -271,11 +280,13 @@ function PropertyValue({
 	autoDetect,
 	onChange,
 	onRemoveEmpty,
+	onRemoveEmptyBlur,
 }: {
 	property: DraftFileProperty;
 	autoDetect: boolean;
 	onChange: (property: DraftFileProperty) => void;
 	onRemoveEmpty: (options?: { focusAdd?: boolean }) => void;
+	onRemoveEmptyBlur: (event: FocusEvent<HTMLElement>) => void;
 }) {
 	if (property.type === "unsupported") {
 		return (
@@ -324,6 +335,7 @@ function PropertyValue({
 			autoDetect={autoDetect}
 			onChange={onChange}
 			onRemoveEmpty={onRemoveEmpty}
+			onRemoveEmptyBlur={onRemoveEmptyBlur}
 		/>
 	);
 }
@@ -333,11 +345,13 @@ function ScalarValue({
 	autoDetect,
 	onChange,
 	onRemoveEmpty,
+	onRemoveEmptyBlur,
 }: {
 	property: Extract<DraftFileProperty, { type: "text" | "number" }>;
 	autoDetect: boolean;
 	onChange: (property: DraftFileProperty) => void;
 	onRemoveEmpty: (options?: { focusAdd?: boolean }) => void;
+	onRemoveEmptyBlur: (event: FocusEvent<HTMLElement>) => void;
 }) {
 	const [draft, setDraft] = useState(String(property.value));
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -364,7 +378,7 @@ function ScalarValue({
 							value: event.target.value,
 						});
 						if (property.key.trim().length === 0 && value.length === 0) {
-							onRemoveEmpty();
+							onRemoveEmptyBlur(event);
 						}
 						return;
 					}
@@ -402,7 +416,7 @@ function ScalarValue({
 			onBlur={(event) => {
 				const value = event.target.value.trim();
 				if (property.key.trim().length === 0 && value.length === 0) {
-					onRemoveEmpty();
+					onRemoveEmptyBlur(event);
 					return;
 				}
 				if (!autoDetect) {
