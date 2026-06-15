@@ -19,6 +19,7 @@ import {
 } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { HubbleCodeBlock } from "./CodeBlockExtension";
 import { LinkClickExtension } from "./LinkClickExtension";
 import { LinkCreationGhostExtension } from "./LinkCreationGhostExtension";
 import { LinkPopover, type WikiTarget } from "./LinkPopover";
@@ -128,7 +129,8 @@ export function EditorView({
 
 	const editor = useEditor({
 		extensions: [
-			StarterKit.configure({ listItem: false }),
+			StarterKit.configure({ codeBlock: false, listItem: false }),
+			HubbleCodeBlock,
 			LinkExtension,
 			SmartLinkExtension,
 			LinkClickExtension.configure({ onOpenExternalLink, onOpenWikiLink }),
