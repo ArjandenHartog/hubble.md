@@ -11,20 +11,12 @@
 	const requestHubble = (method, params) =>
 		new Promise((resolve, reject) => {
 			const id = ++nextHubbleRequestId;
-			let attempts = 0;
-			const send = () => {
-				if (!pendingHubbleRequests.has(id)) return;
-				attempts += 1;
-				postHubbleRequest(id, method, params);
-				if (attempts >= 40) {
-					pendingHubbleRequests.delete(id);
-					reject(new Error("Hubble request timed out"));
-					return;
-				}
-				window.setTimeout(send, 250);
-			};
-			pendingHubbleRequests.set(id, { resolve, reject });
-			send();
+			const timeout = window.setTimeout(() => {
+				pendingHubbleRequests.delete(id);
+				reject(new Error("Hubble request timed out"));
+			}, 10000);
+			pendingHubbleRequests.set(id, { resolve, reject, timeout });
+			postHubbleRequest(id, method, params);
 		});
 
 	window.addEventListener("message", (event) => {
@@ -33,6 +25,7 @@
 		const pending = pendingHubbleRequests.get(data.id);
 		if (!pending) return;
 		pendingHubbleRequests.delete(data.id);
+		window.clearTimeout(pending.timeout);
 		if (data.ok) pending.resolve(data.value);
 		else pending.reject(new Error(data.error || "Hubble request failed"));
 	});

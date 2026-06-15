@@ -47,7 +47,12 @@ A binary file referenced by a Markdown File, such as an image. Asset paths in ma
 
 ### Embed
 
-A self-contained, interactive UI component placed at a point in a [[Markdown File]] — authored as a client-side app and marked by a **parameterized** custom element (e.g. `<embed-kanban board="roadmap">`). An Embed renders **in-realm**, CSS-isolated, but *not* iframed — so its UI can overflow and compose naturally. (Initial mechanism: a Web Component with a Shadow DOM + built CSS; provisional — see ADR-0005.) It reaches Workspace data only through a capability-scoped, async **broker**, never directly. Isolation of *untrusted* content is handled at the document level — a shared document may run the whole editor in a sandbox — not per-Embed.
+A self-contained, interactive UI placed at a point in a [[Markdown File]]. Hubble currently supports two embed forms:
+
+- **Embed Bundle** custom elements (e.g. `<embed-kanban board="roadmap">`) render in-realm, CSS-isolated, for trusted authored components that need editor-integrated UI. See ADR-0005.
+- **Iframe HTML Embed** elements (e.g. `<iframe src="./file-index.html"></iframe>`) render a workspace-local `.html` file in an opaque sandbox for simple agent-authored mini apps. They use the async broker through `@hubble.md/runtime` and load shared workspace dependencies from `.hubble/node_modules`. See ADR-0007.
+
+Both forms reach Workspace data only through a capability-scoped, async **broker**, never directly.
 _Avoid_: widget, plugin, gadget, component.
 
 ### Embed Bundle

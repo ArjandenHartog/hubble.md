@@ -18,8 +18,7 @@
 			"!**/*.tsbuildinfo",
 			"!**/src-tauri/target",
 			"!**/src-tauri/gen/schemas",
-			"!**/convex/_generated",
-			"!apps/desktop/fixtures/playground/vendor"
+			"!**/convex/_generated"
 		]
 	},
 	"formatter": {
