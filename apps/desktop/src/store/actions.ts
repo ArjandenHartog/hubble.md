@@ -226,6 +226,7 @@ export async function savePathContent(
 
 export async function renameMarkdownFile(path: string, nextName: string) {
 	const current = viewerStore.get();
+	const isCurrentFile = current.currentPath === path;
 
 	const trimmedName = nextName.trim();
 	if (trimmedName.length === 0 || /[\\/]/.test(trimmedName)) return;
@@ -241,7 +242,7 @@ export async function renameMarkdownFile(path: string, nextName: string) {
 	if (nextPath === path) return;
 
 	try {
-		if (current.currentPath === path) {
+		if (isCurrentFile) {
 			await savePathContent(path, current.content, { force: true });
 		}
 		pendingRenames.set(path, nextPath);
@@ -275,6 +276,9 @@ export async function renameMarkdownFile(path: string, nextName: string) {
 			},
 		}));
 		await refreshFiles();
+		if (isCurrentFile) {
+			await loadPath(nextPath);
+		}
 	} catch (err) {
 		pendingRenames.delete(path);
 		const message = err instanceof Error ? err.message : String(err);
