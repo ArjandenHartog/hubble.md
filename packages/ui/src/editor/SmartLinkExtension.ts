@@ -1,5 +1,9 @@
 import { Extension } from "@tiptap/core";
-import type { EditorState, Transaction } from "@tiptap/pm/state";
+import {
+	TextSelection,
+	type EditorState,
+	type Transaction,
+} from "@tiptap/pm/state";
 export const FOCUS_LINK_POPOVER_EVENT = "hubble:focus-link-popover";
 export const LINK_CREATION_REQUESTED_EVENT = "hubble:link-creation-requested";
 
@@ -36,6 +40,7 @@ function toggleLinkAtSelection() {
 					range.to,
 					linkType.create({ href: "" }),
 				);
+				tr.setSelection(TextSelection.create(tr.doc, range.to));
 				dispatch?.(tr);
 			}
 			window.dispatchEvent(new CustomEvent(FOCUS_LINK_POPOVER_EVENT));
