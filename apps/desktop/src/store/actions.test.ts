@@ -198,6 +198,7 @@ describe("desktop renameMarkdownFile", () => {
 			if (path === "/workspace/notes/source.md") {
 				return [
 					"[Target](../target.md)",
+					'[Titled](../target.md "caption")',
 					"![Image](../target.assets/image.png)",
 					"[[target.md|Target]]",
 				].join("\n");
@@ -224,9 +225,52 @@ describe("desktop renameMarkdownFile", () => {
 			"/workspace/notes/source.md",
 			[
 				"[Target](../renamed.md)",
+				'[Titled](../renamed.md "caption")',
 				"![Image](../target.assets/image.png)",
 				"[[renamed.md|Target]]",
 			].join("\n"),
+		);
+	});
+
+	it("preserves unsaved edits when rewriting backlinks in the open file", async () => {
+		const api = createDesktopApi();
+		api.readFileText.mockImplementation(async (path: string) => {
+			if (path === "/workspace/source.md") return "[Target](target.md)";
+			return "target";
+		});
+		const { appStore, renameMarkdownFile, viewerStore } =
+			await loadStoreActions(api);
+
+		appStore.set((current) => ({
+			...current,
+			workspace: {
+				...current.workspace,
+				workspacePath: "/workspace",
+				files: [
+					{ path: "/workspace/source.md", modified_at: 1 },
+					{ path: "/workspace/target.md", modified_at: 1 },
+				],
+			},
+			document: {
+				...current.document,
+				currentPath: "/workspace/source.md",
+				lastOpenedPath: "/workspace/source.md",
+				content: "[Target](target.md)\nunsaved edit",
+				diskContent: "[Target](target.md)",
+				externalChange: { kind: "none" },
+				status: "ready",
+				error: null,
+			},
+		}));
+
+		await renameMarkdownFile("/workspace/target.md", "renamed");
+
+		expect(api.writeFileText).toHaveBeenCalledWith(
+			"/workspace/source.md",
+			"[Target](renamed.md)\nunsaved edit",
+		);
+		expect(viewerStore.get().content).toBe(
+			"[Target](renamed.md)\nunsaved edit",
 		);
 	});
 });
@@ -330,6 +374,12 @@ describe("desktop moveSidebarItem", () => {
 
 	it("suffixes folder conflicts and rewrites descendants", async () => {
 		const api = createDesktopApi();
+		api.readFileText.mockImplementation(async (path: string) => {
+			if (path === "/workspace/archive/client 1/brief.md") {
+				return "[Outside](../outside.md)";
+			}
+			return "outside";
+		});
 		const { appStore, moveSidebarItem, viewerStore } =
 			await loadStoreActions(api);
 
@@ -341,14 +391,15 @@ describe("desktop moveSidebarItem", () => {
 				files: [
 					{ path: "/workspace/archive/client/existing.md", modified_at: 1 },
 					{ path: "/workspace/client/brief.md", modified_at: 1 },
+					{ path: "/workspace/outside.md", modified_at: 1 },
 				],
 			},
 			document: {
 				...current.document,
 				currentPath: "/workspace/client/brief.md",
 				lastOpenedPath: "/workspace/client/brief.md",
-				content: "brief",
-				diskContent: "brief",
+				content: "[Outside](../outside.md)",
+				diskContent: "[Outside](../outside.md)",
 				externalChange: { kind: "none" },
 				status: "ready",
 				error: null,
@@ -366,6 +417,71 @@ describe("desktop moveSidebarItem", () => {
 		);
 		expect(viewerStore.get().currentPath).toBe(
 			"/workspace/archive/client 1/brief.md",
+		);
+		expect(api.writeFileText).toHaveBeenCalledWith(
+			"/workspace/archive/client 1/brief.md",
+			"[Outside](../../outside.md)",
+		);
+	});
+
+	it("rewrites folder descendant refs and external backlinks", async () => {
+		const api = createDesktopApi();
+		api.readFileText.mockImplementation(async (path: string) => {
+			if (path === "/workspace/archive/project/notes/a.md") {
+				return [
+					"[Outside](../../outside.md)",
+					"[Peer](b.md)",
+					'<img src="../../shared/image.png">',
+				].join("\n");
+			}
+			if (path === "/workspace/archive/project/notes/b.md") {
+				return "[Outside](../../outside.md)";
+			}
+			if (path === "/workspace/outside.md") {
+				return ["[A](project/notes/a.md)", "[[project/notes/b.md|B]]"].join(
+					"\n",
+				);
+			}
+			return "";
+		});
+		const { appStore, moveSidebarItem } = await loadStoreActions(api);
+
+		appStore.set((current) => ({
+			...current,
+			workspace: {
+				...current.workspace,
+				workspacePath: "/workspace",
+				files: [
+					{ path: "/workspace/project/notes/a.md", modified_at: 1 },
+					{ path: "/workspace/project/notes/b.md", modified_at: 1 },
+					{ path: "/workspace/outside.md", modified_at: 1 },
+				],
+			},
+		}));
+
+		await moveSidebarItem(
+			{ kind: "folder", folderId: "project/" },
+			"/workspace/archive",
+		);
+
+		expect(api.writeFileText).toHaveBeenCalledWith(
+			"/workspace/archive/project/notes/a.md",
+			[
+				"[Outside](../../../outside.md)",
+				"[Peer](b.md)",
+				'<img src="../../../shared/image.png">',
+			].join("\n"),
+		);
+		expect(api.writeFileText).toHaveBeenCalledWith(
+			"/workspace/archive/project/notes/b.md",
+			"[Outside](../../../outside.md)",
+		);
+		expect(api.writeFileText).toHaveBeenCalledWith(
+			"/workspace/outside.md",
+			[
+				"[A](archive/project/notes/a.md)",
+				"[[archive/project/notes/b.md|B]]",
+			].join("\n"),
 		);
 	});
 });

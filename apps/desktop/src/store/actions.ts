@@ -173,30 +173,71 @@ function relativePath(fromDir: string, toPath: string): string {
 	}
 	const relativeParts = [...fromParts.map(() => ".."), ...toParts];
 	const relative = relativeParts.join("/");
-	return relative.startsWith(".") ? relative : `./${relative}`;
+	if (!relative) return ".";
+	return relative;
 }
 
-function refForMovedSource(ref: string, fromPath: string, toPath: string) {
+function indexMovedFiles(movedFiles: MovedFile[]) {
+	return new Map(
+		movedFiles.map((movedFile) => [
+			normalizePath(movedFile.fromPath).toLocaleLowerCase(),
+			movedFile,
+		]),
+	);
+}
+
+function movedMarkdownFiles(
+	files: FileEntry[],
+	sourcePath: string,
+	nextPath: string,
+	isFolder: boolean,
+): MovedFile[] {
+	if (!isFolder) return [{ fromPath: sourcePath, toPath: nextPath }];
+	return files
+		.filter((file) => pathInFolder(file.path, sourcePath))
+		.map((file) => ({
+			fromPath: file.path,
+			toPath: replacePathPrefix(file.path, sourcePath, nextPath),
+		}));
+}
+
+function pathAfterMove(path: string, movedByOldPath: Map<string, MovedFile>) {
+	return (
+		movedByOldPath.get(normalizePath(path).toLocaleLowerCase())?.toPath ?? path
+	);
+}
+
+function refForMovedSource(
+	ref: string,
+	fromPath: string,
+	toPath: string,
+	movedByOldPath: Map<string, MovedFile>,
+) {
 	if (!isLocalRelativeRef(ref)) return ref;
 	const { path, suffix } = splitRef(ref);
 	const target = absoluteRefPath(fromPath, path);
+	const nextTarget = pathAfterMove(target, movedByOldPath);
 	const nextDir = dirname(toPath);
 	if (!nextDir) return ref;
-	return `${relativePath(nextDir, target)}${suffix}`;
+	return `${relativePath(nextDir, nextTarget)}${suffix}`;
 }
 
 function refForMovedTarget(
 	ref: string,
 	sourcePath: string,
-	{ fromPath, toPath }: MovedFile,
+	nextSourcePath: string,
+	movedByOldPath: Map<string, MovedFile>,
 ) {
 	if (!isLocalRelativeRef(ref)) return ref;
 	const { path, suffix } = splitRef(ref);
 	const target = absoluteRefPath(sourcePath, path);
-	if (!pathEquals(target, fromPath)) return ref;
-	const sourceDir = dirname(sourcePath);
+	const movedTarget = movedByOldPath.get(
+		normalizePath(target).toLocaleLowerCase(),
+	);
+	if (!movedTarget) return ref;
+	const sourceDir = dirname(nextSourcePath);
 	if (!sourceDir) return ref;
-	return `${relativePath(sourceDir, toPath)}${suffix}`;
+	return `${relativePath(sourceDir, movedTarget.toPath)}${suffix}`;
 }
 
 function rewriteRefs(
@@ -205,8 +246,16 @@ function rewriteRefs(
 ): string {
 	return content
 		.replace(/(!?\[[^\]\n]*\]\()([^)\n]+)(\))/g, (match, open, ref, close) => {
-			const nextRef = rewrite(ref.trim());
-			return nextRef === ref.trim() ? match : `${open}${nextRef}${close}`;
+			const trimmedRef = ref.trim();
+			// Markdown link titles belong to the link destination, but not to the
+			// filesystem path we resolve for move/rename rewrites.
+			const titledRef = trimmedRef.match(
+				/^(\S+)(\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))$/,
+			);
+			const refPath = titledRef?.[1] ?? trimmedRef;
+			const title = titledRef?.[2] ?? "";
+			const nextRef = `${rewrite(refPath)}${title}`;
+			return nextRef === trimmedRef ? match : `${open}${nextRef}${close}`;
 		})
 		.replace(/\b(src|href)=(["'])([^"']+)\2/gi, (match, attr, quote, ref) => {
 			const nextRef = rewrite(ref);
@@ -218,33 +267,39 @@ function rewriteRefsForMovedSource(
 	content: string,
 	fromPath: string,
 	toPath: string,
+	movedByOldPath: Map<string, MovedFile>,
 ) {
 	return rewriteRefs(content, (ref) =>
-		refForMovedSource(ref, fromPath, toPath),
+		refForMovedSource(ref, fromPath, toPath, movedByOldPath),
 	);
 }
 
 function rewriteRefsToMovedTarget(
 	content: string,
 	sourcePath: string,
-	movedFile: MovedFile,
+	nextSourcePath: string,
+	movedByOldPath: Map<string, MovedFile>,
 ) {
 	return rewriteRefs(content, (ref) =>
-		refForMovedTarget(ref, sourcePath, movedFile),
+		refForMovedTarget(ref, sourcePath, nextSourcePath, movedByOldPath),
 	);
 }
 
 function rewriteWikiRefs(
 	content: string,
 	workspacePath: string,
-	movedFile: MovedFile,
+	movedByOldPath: Map<string, MovedFile>,
 ) {
-	const fromTarget = relativeWorkspacePath(movedFile.fromPath, workspacePath);
-	const toTarget = relativeWorkspacePath(movedFile.toPath, workspacePath);
 	return content.replace(
 		/\[\[([^\]\n|]+)(\|[^\]\n]+)?\]\]/g,
-		(match, target, title = "") =>
-			target === fromTarget ? `[[${toTarget}${title}]]` : match,
+		(match, target, title = "") => {
+			const fromPath = absoluteWorkspacePath(target, workspacePath);
+			const movedTarget = movedByOldPath.get(
+				normalizePath(fromPath).toLocaleLowerCase(),
+			);
+			if (!movedTarget) return match;
+			return `[[${relativeWorkspacePath(movedTarget.toPath, workspacePath)}${title}]]`;
+		},
 	);
 }
 
@@ -265,19 +320,44 @@ async function writeFileIfChanged(path: string, current: string, next: string) {
 	return true;
 }
 
-async function updateBacklinks(movedFile: MovedFile, files: FileEntry[]) {
+async function updateMovedReferences(
+	movedFiles: MovedFile[],
+	files: FileEntry[],
+) {
 	const workspacePath = workspaceStore.get().workspacePath;
-	if (!workspacePath) return;
+	if (!workspacePath || movedFiles.length === 0) return;
+	const movedByOldPath = indexMovedFiles(movedFiles);
+	const current = viewerStore.get();
+
 	for (const file of files) {
-		if (pathEquals(file.path, movedFile.fromPath)) continue;
+		const nextPath = pathAfterMove(file.path, movedByOldPath);
 		try {
-			const content = await desktopApi.readFileText(file.path);
-			const nextContent = rewriteWikiRefs(
-				rewriteRefsToMovedTarget(content, file.path, movedFile),
-				workspacePath,
-				movedFile,
+			// The open editor may have unsaved changes, so disk content is stale for
+			// that file. Rewrite from the draft and then save that rewritten draft.
+			const content = pathEquals(current.currentPath ?? "", nextPath)
+				? current.content
+				: await desktopApi.readFileText(nextPath);
+			const movedSource = movedByOldPath.get(
+				normalizePath(file.path).toLocaleLowerCase(),
 			);
-			await writeFileIfChanged(file.path, content, nextContent);
+			let nextContent = rewriteRefsToMovedTarget(
+				content,
+				file.path,
+				nextPath,
+				movedByOldPath,
+			);
+			// Moved files also need their own relative refs re-based from their new
+			// directory, even when the referenced target did not move.
+			if (movedSource) {
+				nextContent = rewriteRefsForMovedSource(
+					nextContent,
+					movedSource.fromPath,
+					movedSource.toPath,
+					movedByOldPath,
+				);
+			}
+			nextContent = rewriteWikiRefs(nextContent, workspacePath, movedByOldPath);
+			await writeFileIfChanged(nextPath, content, nextContent);
 		} catch (err) {
 			const message = handleFileError(err);
 			toast.error("Failed to update references", { description: message });
@@ -568,8 +648,8 @@ export async function renameMarkdownFile(path: string, nextName: string) {
 		}
 		pendingRenames.set(path, nextPath);
 		await desktopApi.renameFile(path, nextPath);
-		await updateBacklinks(
-			{ fromPath: path, toPath: nextPath },
+		await updateMovedReferences(
+			[{ fromPath: path, toPath: nextPath }],
 			filesBeforeRename,
 		);
 		appStore.set((state) => ({
@@ -648,16 +728,16 @@ export async function moveSidebarItem(
 	const currentAffected =
 		currentPath && moveAffectsPath(currentPath, sourcePath, isFolder);
 	const nextPath = uniqueMovePath(targetFolderPath, sourcePath, isFolder);
-	let movedFileContent: string | null = null;
+	const movedFiles = movedMarkdownFiles(
+		filesBeforeMove,
+		sourcePath,
+		nextPath,
+		isFolder,
+	);
 
 	try {
 		if (currentAffected && currentPath) {
 			await savePathContent(currentPath, current.content, { force: true });
-		}
-		if (!isFolder) {
-			movedFileContent = currentAffected
-				? current.content
-				: await desktopApi.readFileText(sourcePath);
 		}
 		await desktopApi.renameFile(sourcePath, nextPath);
 		appStore.set((state) => ({
@@ -694,17 +774,7 @@ export async function moveSidebarItem(
 					: null,
 			},
 		}));
-		if (movedFileContent !== null) {
-			await writeFileIfChanged(
-				nextPath,
-				movedFileContent,
-				rewriteRefsForMovedSource(movedFileContent, sourcePath, nextPath),
-			);
-			await updateBacklinks(
-				{ fromPath: sourcePath, toPath: nextPath },
-				filesBeforeMove,
-			);
-		}
+		await updateMovedReferences(movedFiles, filesBeforeMove);
 		await syncPinnedNotes();
 		await refreshFiles();
 	} catch (err) {
