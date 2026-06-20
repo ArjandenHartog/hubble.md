@@ -14,8 +14,8 @@
 }
 
 [data-hubble-editor] .ProseMirror {
-	--editor-block-gap: 0.45em;
-	--editor-paragraph-gap: 0.5em;
+	--editor-gap: 0.5em;
+	--editor-heading-gap: 0.35em;
 	--editor-section-gap: 0.9em;
 	--editor-list-gap: 0.25em;
 
@@ -40,29 +40,38 @@
 	margin-block: 0;
 }
 
+/* Default separation between any two blocks. */
 [data-hubble-editor] .ProseMirror > * + * {
-	margin-block-start: var(--editor-block-gap);
-}
-
-[data-hubble-editor] .ProseMirror > p + :is(p, ul, ol) {
-	margin-block-start: var(--editor-paragraph-gap);
+	margin-block-start: var(--editor-gap);
 }
 
 [data-hubble-editor] .ProseMirror > .react-renderer.node-codeBlock {
-	margin-block: var(--editor-paragraph-gap);
+	margin-block: var(--editor-gap);
 }
 
 [data-hubble-editor] .ProseMirror > * + .react-renderer.node-codeBlock,
 [data-hubble-editor] .ProseMirror > .react-renderer.node-codeBlock + * {
-	margin-block-start: var(--editor-paragraph-gap);
+	margin-block-start: var(--editor-gap);
 }
 
-[data-hubble-editor] .ProseMirror > * + :is(h1, h2) {
+/*
+ * Semantic gaps below override the default. All have equal specificity, so
+ * source order resolves overlaps — keep section/list rules last.
+ */
+
+/* A heading starts a new section: roomy above. */
+[data-hubble-editor] .ProseMirror > * + :is(h1, h2, h3, h4, h5, h6) {
 	margin-block-start: var(--editor-section-gap);
 }
 
-[data-hubble-editor] .ProseMirror > :is(h1, h2, h3) + * {
-	margin-block-start: 0.35em;
+/* A heading introduces what follows: tight below. */
+[data-hubble-editor] .ProseMirror > :is(h1, h2, h3, h4, h5, h6) + * {
+	margin-block-start: var(--editor-heading-gap);
+}
+
+/* A list needs trailing breathing room before any following block. */
+[data-hubble-editor] .ProseMirror > :is(ul, ol) + * {
+	margin-block-start: var(--editor-section-gap);
 }
 
 [data-hubble-editor] .ProseMirror h1 {
