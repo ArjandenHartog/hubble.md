@@ -3,7 +3,15 @@
 	"private": true,
 	"version": "0.1.10",
 	"description": "Desktop app for Hubble.md",
-	"author": "Ben Holmes",
+	"license": "MIT",
+	"author": "Ben Holmes <hey@bholmes.dev>",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/bholmesdev/hubble.md.git",
+		"directory": "apps/desktop"
+	},
+	"homepage": "https://hubble.md",
+	"bugs": "https://github.com/bholmesdev/hubble.md/issues",
 	"type": "module",
 	"main": "./out/main/main.js",
 	"scripts": {

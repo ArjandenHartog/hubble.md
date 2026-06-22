@@ -1,7 +1,16 @@
 {
 	"name": "@hubble.md/cli",
 	"version": "0.0.1",
+	"description": "CLI for syncing a Hubble.md workspace from the terminal",
 	"license": "MIT",
+	"author": "Ben Holmes <hey@bholmes.dev>",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/bholmesdev/hubble.md.git",
+		"directory": "packages/cli"
+	},
+	"homepage": "https://hubble.md",
+	"bugs": "https://github.com/bholmesdev/hubble.md/issues",
 	"type": "module",
 	"bin": {
 		"hubble": "./dist/index.js"

@@ -3,6 +3,16 @@
 	"type": "module",
 	"version": "0.0.1",
 	"private": true,
+	"description": "Hubble.md in the browser",
+	"license": "MIT",
+	"author": "Ben Holmes <hey@bholmes.dev>",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/bholmesdev/hubble.md.git",
+		"directory": "apps/www"
+	},
+	"homepage": "https://hubble.md",
+	"bugs": "https://github.com/bholmesdev/hubble.md/issues",
 	"scripts": {
 		"dev": "vite",
 		"build": "tsc -b && vite build",

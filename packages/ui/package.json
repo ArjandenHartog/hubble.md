@@ -2,6 +2,16 @@
 	"name": "@hubble.md/ui",
 	"version": "0.0.1",
 	"private": true,
+	"description": "Shared React editor UI for Hubble.md",
+	"license": "MIT",
+	"author": "Ben Holmes <hey@bholmes.dev>",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/bholmesdev/hubble.md.git",
+		"directory": "packages/ui"
+	},
+	"homepage": "https://hubble.md",
+	"bugs": "https://github.com/bholmesdev/hubble.md/issues",
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",

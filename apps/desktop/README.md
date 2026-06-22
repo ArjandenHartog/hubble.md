@@ -46,3 +46,4 @@ on `bholmesdev/hubble.md`. Each release should include:
 - `latest-mac.yml`
 - the generated `.zip`
 - the generated `.dmg`
+

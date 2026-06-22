@@ -1,17 +1,25 @@
-# Contributor Manual
+# Contributing to Hubble
 
-We welcome contributions of any size. If you want help shaping an idea, scoping a change, or getting a PR over the finish line, open an issue and we'll work through it with you.
+Thanks for your interest in Hubble. Contributions of any size are welcome. If you want help shaping an idea, scoping a change, or getting a PR over the finish line, open an issue and we'll work through it with you.
+
+## TL;DR
+
+- Open or comment on a GitHub issue before starting substantial work, so we can agree on the approach.
+- Small fixes and docs updates can go straight to a PR.
+- Install Node.js and pnpm, run `pnpm install`, then `pnpm dev:desktop`.
+- Run `pnpm build` before opening a PR. If you changed editor behavior, also run the editor tests.
 
 ## Feature requests
 
 We're open to feature requests of all kinds. If you have an idea for Hubble, we ask that you:
-- **First open a GitHub issue** describing the problem you want to solve. If you already have a solution in mind, feel free to outline this too.
-- For smaller fixes and documentation updates, you may open a PR to pair with your issue as well. We ask that discussion on the "why" be kept to GitHub issues, so we can use the PR to purely review implementation.
-- For all other fixes and feature requests, we should have consensus on an approach in a GitHub issue before a reviewable PR is opened. Draft PRs before consensus are okay.
 
-**⚠️ We strongly discourage PRs for undiscussed feature work!** Let's talk through the UX and architecture up-front so we can agree on what to build before we build it.
+- **First open a GitHub issue** describing the problem you want to solve. If you already have a solution in mind, feel free to outline it too.
+- For smaller fixes and documentation updates, you may open a PR to pair with your issue. We ask that discussion on the "why" be kept to the issue, so the PR stays focused on reviewing implementation.
+- For all other fixes and feature requests, we should have consensus on an approach in an issue before a reviewable PR is opened. Draft PRs before consensus are okay.
 
-## Setup Guide
+**⚠️ We strongly discourage PRs for undiscussed feature work.** Let's talk through the UX and architecture up front so we can agree on what to build before we build it.
+
+## Setup
 
 ### Prerequisites
 
@@ -19,9 +27,9 @@ Install:
 
 - [Node.js](https://nodejs.org/en/download)
 - [pnpm](https://pnpm.io/installation)
-- [Rust via rustup](https://www.rust-lang.org/tools/install)
 - macOS desktop builds: Xcode Command Line Tools via `xcode-select --install`
-- Windows / Linux desktop builds: the system dependencies from the [Tauri prerequisites guide](https://v2.tauri.app/start/prerequisites/)
+
+The desktop app is built with [Electron](https://www.electronjs.org/), so no extra native toolchain is required beyond the above.
 
 ### Run your first build
 
@@ -32,33 +40,35 @@ pnpm install
 pnpm bundle:desktop
 ```
 
-On macOS, this creates `apps/desktop/src-tauri/target/release/bundle/macos/Hubble.app`.
+This creates a production desktop bundle under `apps/desktop/release/`. See [`apps/desktop/README.md`](./apps/desktop/README.md) for packaging and distribution detail.
 
 ### Development workflow
 
-If you want the live desktop dev flow instead of a production bundle:
+For the live desktop dev flow instead of a production bundle:
 
 ```sh
 pnpm dev:desktop
 ```
 
+The repo is a pnpm workspace. See the [repository structure](./README.md#repository-structure) in the README for what each app and package does, and [`CONTEXT.md`](./CONTEXT.md) for the shared glossary of project terms.
+
 ### Run the tests
 
-The shared editor package uses Vitest. You can run its tests with:
+The editor package uses Vitest:
 
 ```sh
 pnpm --filter @hubble.md/editor test
 ```
 
-### Get ready for PR
+## Before you open a PR
 
-Before opening a PR, please run:
+Run the full check:
 
 ```sh
 pnpm build
 ```
 
-If you changed editor behavior, also run:
+This runs Biome, builds every package, and typechecks. If you changed editor behavior, also run:
 
 ```sh
 pnpm --filter @hubble.md/editor test
@@ -66,10 +76,18 @@ pnpm --filter @hubble.md/editor test
 
 ## PR checklist
 
-When making a PR, please ensure that you:
+When you open a PR, please:
 
 - link the issue you're addressing when relevant
 - explain what changed
 - describe how you tested it
 
 If the change affects editor behavior or rendering, tests are strongly encouraged.
+
+## Code of Conduct
+
+This project follows our [Code of Conduct](./CODE_OF_CONDUCT.md). By participating, you agree to uphold it.
+
+## Reporting security issues
+
+Please do not report security vulnerabilities through public issues. See our [security policy](./SECURITY.md) for how to report them privately.

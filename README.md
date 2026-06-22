@@ -1,64 +1,94 @@
 # Hubble.md
 
-Hubble.md is a nice rich-text editor for Markdown files. It's meant to take the best parts of [Typora](https://typora.io) and improve upon them as open source software.
+**The best notepad for you and your agents.** Free, open source, backed by Markdown and HTML.
 
-## Quick start
+<p align="center">
+  <a href="https://github.com/bholmesdev/hubble.md/releases/latest">Download</a>
+  ·
+  <a href="https://github.com/bholmesdev/hubble.md/releases">Releases</a>
+  ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+  ·
+  <a href="https://twitter.com/bholmesdev">@bholmesdev</a>
+</p>
 
-Want to build Hubble locally and try it yourself?
+## What is Hubble?
 
-Install:
+Hubble is a free, open-source notetaking app for you and your agents.
+
+- **Feels familiar.** The same writing experience you're used to from Notion or Apple Notes, but for Markdown. `/` commands, Markdown shortcuts, and file properties / frontmatter are supported.
+- **Agent ready.** Point your agent at your notes folder to start collaborating. Hubble will live-reloads as your agent edits.
+- **Build any view.** Beyond Markdown, you can build and view HTML-based apps. [Install the skills](https://github.com/bholmesdev/hubble-skills) and tell your coding agent what to build. Turn a folder of notes into a table, a bookshelf, a map... anything you can think of.
+
+## Download
+
+Hubble ships as a desktop app. Install the latest build from the [releases page](https://github.com/bholmesdev/hubble.md/releases/latest).
+
+macOS is supported today. Windows and Linux are not built yet, mostly because I haven't tested on those operating systems yet :) They should be straightforward to add, so contributions are welcome!
+
+## Compile from source
+
+Want to build Hubble directly? First, install the prerequisites:
 
 - [Node.js](https://nodejs.org/en/download)
 - [pnpm](https://pnpm.io/installation)
 - macOS desktop builds: Xcode Command Line Tools via `xcode-select --install`
 
-Then from the repo root, run:
+Then from the repo root:
 
 ```sh
 pnpm install
 pnpm bundle:desktop
 ```
 
-This creates a production desktop bundle under `apps/desktop/release/`. For more desktop-specific build and dev detail, see [`apps/desktop/README.md`](./apps/desktop/README.md).
+This creates a production desktop bundle under `apps/desktop/release/`. For the live dev flow and packaging detail, see [`apps/desktop/README.md`](./apps/desktop/README.md).
 
-## Monorepo structure
+## Repository structure
 
-This repo uses a pnpm workspace:
+This repo is a pnpm workspace:
 
 ```text
 .
 ├── apps
-│   ├── desktop  # Electron desktop app
-│   └── www      # Project site / landing page
+│   ├── desktop  # Electron desktop app (the main Hubble app)
+│   ├── web      # Astro landing page (hubble.md homepage)
+│   └── www      # React + Convex web app (Hubble in the browser. HEAVILY WIP)
 └── packages
-    └── editor   # Shared editor package
+    ├── editor         # Framework-agnostic Markdown editor core (Tiptap + Markdown conversion)
+    ├── ui             # Shared React editor UI built on the editor core
+    ├── runtime        # Runtime injected into HTML Apps and Embeds
+    ├── sync           # Filesystem sync engine (HEAVILY WIP)
+    ├── convex-client  # Convex client used by the sync engine
+    ├── sync-backend   # Convex backend powering Cloud Sync
+    └── cli            # `hubble` CLI for syncing a folder from the terminal
 ```
-
-### `apps/desktop`
-
-The main Hubble desktop application. See [`apps/desktop/README.md`](./apps/desktop/README.md) for build, dev, and packaging details.
-
-### `apps/www`
-
-The website package. This is intended to become the landing page for the project.
-
-### `packages/editor`
-
-Shared editor primitives and logic used by the app. Right now this is the core editor module.
 
 ## Common commands
 
 From the repo root:
 
 ```sh
-pnpm install
-pnpm build
-pnpm bundle:desktop
-pnpm check
-pnpm typecheck
-pnpm dev:desktop
+pnpm install          # install dependencies
+pnpm dev:desktop      # run the desktop app in dev
+pnpm dev:www          # run the web app in dev
+pnpm build            # check, build all packages, and typecheck
+pnpm bundle:desktop   # build a production desktop bundle
+pnpm check            # run Biome
+pnpm typecheck        # typecheck all packages
 ```
+
+## Documentation
+
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md) covers the contribution flow, local setup, and pre-PR checks.
+- [`CONTEXT.md`](./CONTEXT.md) is the shared glossary for project terms (Workspace, HTML App, Embed, and more).
+- [`apps/desktop/README.md`](./apps/desktop/README.md) covers desktop build, dev, and packaging.
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for contribution flow, local setup, and pre-PR checks.
+Contributions of any size are welcome. Open an issue before substantial work so we can agree on the approach together. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full flow.
+
+This project follows our [Code of Conduct](./CODE_OF_CONDUCT.md). To report a security issue, see our [security policy](./SECURITY.md).
+
+## License
+
+Hubble.md is licensed under the [MIT License](./LICENSE).
