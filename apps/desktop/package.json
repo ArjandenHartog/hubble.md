@@ -20,6 +20,8 @@
 		"build": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit && electron-vite build",
 		"bundle": "pnpm build && electron-builder --mac",
 		"bundle:publish": "pnpm build && electron-builder --mac --publish always",
+		"bundle:win": "pnpm build && electron-builder --win",
+		"bundle:win:publish": "pnpm build && electron-builder --win --publish always",
 		"preview": "vite preview",
 		"sync:playground": "node scripts/sync-playground.mjs",
 		"test": "vitest run"
@@ -96,6 +98,31 @@
 				"zip"
 			],
 			"category": "public.app-category.productivity"
+		},
+		"win": {
+			"icon": "assets/icon.png",
+			"target": [
+				{
+					"target": "nsis",
+					"arch": [
+						"x64"
+					]
+				},
+				{
+					"target": "portable",
+					"arch": [
+						"x64"
+					]
+				}
+			]
+		},
+		"nsis": {
+			"oneClick": false,
+			"perMachine": false,
+			"allowToChangeInstallationDirectory": true,
+			"createDesktopShortcut": true,
+			"createStartMenuShortcut": true,
+			"shortcutName": "Hubble"
 		},
 		"fileAssociations": [
 			{

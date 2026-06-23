@@ -24,7 +24,11 @@ Hubble is a free, open-source notetaking app for you and your agents.
 
 Hubble ships as a desktop app. Install the latest build from the [releases page](https://github.com/bholmesdev/hubble.md/releases/latest).
 
-macOS is supported today. Windows and Linux are not built yet, mostly because I haven't tested on those operating systems yet :) They should be straightforward to add, so contributions are welcome!
+macOS and Windows are supported today. Windows builds (an NSIS installer and a
+portable `.exe`) are produced automatically by CI — see the
+[Desktop Build (Windows)](.github/workflows/desktop-build.yml) workflow, whose
+run artifacts always contain a ready-to-run `.exe`. Linux isn't built yet, but
+the desktop app runs on it and contributions to package it are welcome!
 
 ## Compile from source
 

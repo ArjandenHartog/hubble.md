@@ -8,8 +8,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 ## [Unreleased]
 
 ### Added
+- Windows desktop app: installer (NSIS) and portable `.exe` builds, produced automatically by CI
+- Start Claude in your open folder straight from the toolbar (or File menu) so your agent gets instant access to your notes
+- Settings are now reachable from the File menu on Windows and Linux
 
 ### Changed
+- Windows and Linux use the native window frame so the minimize/maximize/close controls are always available
 
 ### Fixed
 

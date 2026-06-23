@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
@@ -595,11 +596,28 @@ function buildMenu() {
 				},
 				{ type: "separator" },
 				{
+					id: "start-claude",
+					label: "Start Claude in Folder",
+					enabled: menuState.hasWorkspace,
+					click: () => sendToRenderer("desktop:menu-start-claude"),
+				},
+				{
 					id: "sync-workspace",
 					label: "Sync Workspace",
 					enabled: menuState.hasWorkspace,
 					click: () => sendToRenderer("desktop:menu-sync-workspace"),
 				},
+				...(process.platform !== "darwin"
+					? ([
+							{ type: "separator" },
+							{
+								id: "settings",
+								label: "Settings...",
+								accelerator: "CmdOrCtrl+,",
+								click: () => sendToRenderer("desktop:menu-open-settings"),
+							},
+						] satisfies Electron.MenuItemConstructorOptions[])
+					: []),
 				{ type: "separator" },
 				{ role: "close" },
 			],
@@ -883,8 +901,16 @@ function matchesGlob(relativePath: string, glob: string): boolean {
 	return new RegExp(`^${source}$`).test(relativePath);
 }
 
+function devWindowIconPath(): string | undefined {
+	// Packaged builds carry the icon through the executable itself, so only
+	// point dev/non-mac windows at the source PNG to get a taskbar icon.
+	if (!isDev || process.platform === "darwin") return undefined;
+	return path.join(__dirname, "../../assets/icon.png");
+}
+
 async function createWindow() {
 	const windowState = await loadWindowState();
+	const devWindowIcon = devWindowIconPath();
 	const window = new BrowserWindow({
 		title: appName,
 		...(windowState.x !== undefined && windowState.y !== undefined
@@ -893,8 +919,15 @@ async function createWindow() {
 		width: windowState.width,
 		height: windowState.height,
 		show: false,
-		titleBarStyle: "hidden",
-		trafficLightPosition: { x: 12, y: 10 },
+		// The custom frameless toolbar is macOS-only; Windows and Linux keep the
+		// native window frame so min/maximize/close controls are always available.
+		...(process.platform === "darwin"
+			? {
+					titleBarStyle: "hidden" as const,
+					trafficLightPosition: { x: 12, y: 10 },
+				}
+			: {}),
+		...(devWindowIcon ? { icon: devWindowIcon } : {}),
 		webPreferences: {
 			contextIsolation: true,
 			nodeIntegration: false,
@@ -931,7 +964,62 @@ async function createWindow() {
 	}
 }
 
+function launchClaudeInFolder(cwd: string) {
+	if (process.platform === "win32") {
+		// `start "" cmd /k claude` opens a fresh terminal in the folder that keeps
+		// running after Claude exits, so the user can read any output.
+		const child = spawn("cmd.exe", ["/c", "start", "", "cmd", "/k", "claude"], {
+			cwd,
+			detached: true,
+			stdio: "ignore",
+			windowsHide: false,
+		});
+		child.unref();
+		return;
+	}
+	if (process.platform === "darwin") {
+		const shellCommand = `cd '${cwd.replace(/'/g, `'\\''`)}' && claude`;
+		const script = `tell application "Terminal"\nactivate\ndo script ${JSON.stringify(shellCommand)}\nend tell`;
+		const child = spawn("osascript", ["-e", script], {
+			detached: true,
+			stdio: "ignore",
+		});
+		child.unref();
+		return;
+	}
+	// Linux: fall through a list of common terminal emulators until one launches.
+	const shellCommand = `cd '${cwd.replace(/'/g, `'\\''`)}' && claude; exec "$SHELL"`;
+	const terminals: Array<[string, string[]]> = [
+		["x-terminal-emulator", ["-e", "bash", "-lc", shellCommand]],
+		["gnome-terminal", ["--", "bash", "-lc", shellCommand]],
+		["konsole", ["-e", "bash", "-lc", shellCommand]],
+		["xterm", ["-e", "bash", "-lc", shellCommand]],
+	];
+	const tryTerminal = (index: number) => {
+		if (index >= terminals.length) {
+			console.error("No supported terminal emulator found to launch Claude.");
+			return;
+		}
+		const [command, args] = terminals[index];
+		const child = spawn(command, args, {
+			cwd,
+			detached: true,
+			stdio: "ignore",
+		});
+		child.once("error", () => tryTerminal(index + 1));
+		child.unref();
+	};
+	tryTerminal(0);
+}
+
 function registerIpc() {
+	ipcMain.handle("desktop:launch-claude", async (_event, { cwd }) => {
+		const root = assertGrantedRoot(cwd);
+		const stat = await fs.stat(root);
+		if (!stat.isDirectory()) throw new Error(`Not a directory: ${cwd}`);
+		launchClaudeInFolder(root);
+	});
+
 	ipcMain.handle(
 		"desktop:list-directory",
 		async (_event, { path: dirPath }) => {

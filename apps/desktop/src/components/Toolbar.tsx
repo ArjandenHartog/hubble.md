@@ -6,9 +6,14 @@ import { toast } from "sonner";
 import MingcuteCopy2Line from "~icons/mingcute/copy-2-line";
 import MingcuteFolderOpenLine from "~icons/mingcute/folder-open-line";
 import MingcuteMore2Line from "~icons/mingcute/more-2-line";
+import MingcuteTerminalAiLine from "~icons/mingcute/terminal-ai-line";
 import { desktopApi } from "../desktopApi";
 import { revealFileLabel } from "../lib/revealFile";
-import { renameCurrentMarkdownFile, toggleSidebar } from "../store/actions";
+import {
+	renameCurrentMarkdownFile,
+	startClaude,
+	toggleSidebar,
+} from "../store/actions";
 import {
 	currentPathStore,
 	sidebarOpenStore,
@@ -42,11 +47,28 @@ export function Toolbar({
 				void renameCurrentMarkdownFile(nextName)
 			}
 			rightSlot={
-				workspacePath && currentPath ? (
-					<NoteActionsMenu path={currentPath} />
+				workspacePath ? (
+					<div className="flex items-center gap-1">
+						<StartClaudeButton />
+						{currentPath ? <NoteActionsMenu path={currentPath} /> : null}
+					</div>
 				) : undefined
 			}
 		/>
+	);
+}
+
+function StartClaudeButton() {
+	return (
+		<Button
+			variant="ghost"
+			size="icon-sm"
+			aria-label="Start Claude in folder"
+			title="Start Claude in folder"
+			onClick={() => void startClaude()}
+		>
+			<MingcuteTerminalAiLine className="size-4" />
+		</Button>
 	);
 }
 

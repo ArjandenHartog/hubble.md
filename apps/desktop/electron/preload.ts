@@ -61,6 +61,7 @@ const desktopApi = {
 			void ipcRenderer.invoke("desktop:unwatch-path", { watchId });
 		};
 	},
+	launchClaude: (cwd) => ipcRenderer.invoke("desktop:launch-claude", { cwd }),
 	openExternalUrl: (url) =>
 		ipcRenderer.invoke("desktop:open-external-url", { url }),
 	revealFile: (path) => ipcRenderer.invoke("desktop:reveal-file", { path }),
@@ -90,6 +91,8 @@ const desktopApi = {
 		subscribe("desktop:menu-show-workspace-switcher", callback),
 	onMenuSyncWorkspace: (callback) =>
 		subscribe("desktop:menu-sync-workspace", callback),
+	onMenuStartClaude: (callback) =>
+		subscribe("desktop:menu-start-claude", callback),
 	onWindowFocus: (callback) => subscribe("desktop:window-focus", callback),
 } satisfies DesktopApi;
 

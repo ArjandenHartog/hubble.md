@@ -38,12 +38,35 @@ pnpm bundle:desktop
 
 `bundle:desktop` creates macOS release artifacts under `apps/desktop/release/`.
 
+### Windows
+
+From `apps/desktop` on a Windows machine (or any machine; `electron-builder`
+generates the `.ico` from `assets/icon.png` automatically):
+
+```sh
+pnpm bundle:win
+```
+
+This produces an NSIS installer and a portable `.exe` under
+`apps/desktop/release/`. CI builds these on every push to a `claude/**` branch
+and on demand via the **Desktop Build (Windows)** workflow, uploading the
+`.exe` as a downloadable run artifact — no release or code signing required.
+
+## Start Claude
+
+When a folder is open, the toolbar's terminal button (also **File → Start
+Claude in Folder**) opens a terminal scoped to that folder and runs the
+`claude` CLI, giving the agent direct access to your notes. The `claude` CLI
+must be installed and on your `PATH`.
+
 ## Distribution
 
-The desktop app is macOS-only for now. Production updates use GitHub Releases
-on `bholmesdev/hubble.md`. Each release should include:
+macOS and Windows are supported. Production updates use GitHub Releases on
+`bholmesdev/hubble.md`, tagged `desktop-v*`. A release should include:
 
-- `latest-mac.yml`
-- the generated `.zip`
-- the generated `.dmg`
+- macOS: `latest-mac.yml`, the generated `.zip`, and the `.dmg`
+- Windows: `latest.yml`, the NSIS installer `.exe`, and its `.blockmap`
+
+Auto-update is currently wired for macOS only; Windows users update by
+downloading the latest installer.
 

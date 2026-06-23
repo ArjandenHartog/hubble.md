@@ -303,6 +303,27 @@ export function clearViewer() {
 	viewerStore.set((state) => emptyDoc(state.lastOpenedPath));
 }
 
+/**
+ * Launches Claude Code in a terminal scoped to the current folder, giving the
+ * agent direct access to the open notes. No-ops when no folder is open.
+ */
+export async function startClaude() {
+	const workspacePath = workspaceStore.get().workspacePath;
+	if (!workspacePath) {
+		toast.error("Open a folder before starting Claude");
+		return;
+	}
+	try {
+		await desktopApi.launchClaude(workspacePath);
+		toast.success("Starting Claude in your folder", {
+			description: workspacePath,
+		});
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		toast.error("Failed to start Claude", { description: message });
+	}
+}
+
 /** Opens a workspace and reveals the sidebar. */
 export async function openWorkspaceWithSidebar() {
 	await openWorkspace();

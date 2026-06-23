@@ -90,6 +90,7 @@ export type DesktopApi = {
 		options: WatchOptions,
 		callback: (paths: string[]) => void,
 	): Promise<Unsubscribe>;
+	launchClaude(cwd: string): Promise<void>;
 	openExternalUrl(url: string): Promise<void>;
 	revealFile(path: string): Promise<void>;
 	resolvePath(path: string): Promise<string>;
@@ -111,5 +112,6 @@ export type DesktopApi = {
 	onMenuOpenSettings(callback: () => void): Unsubscribe;
 	onMenuShowWorkspaceSwitcher(callback: () => void): Unsubscribe;
 	onMenuSyncWorkspace(callback: () => void): Unsubscribe;
+	onMenuStartClaude(callback: () => void): Unsubscribe;
 	onWindowFocus(callback: () => void): Unsubscribe;
 };

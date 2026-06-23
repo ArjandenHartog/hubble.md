@@ -41,6 +41,7 @@ import {
 	savePathContent,
 	setSidebarOpen,
 	setWorkspaceSwitcherOpen,
+	startClaude,
 	updateEditorContent,
 } from "./store/actions";
 import {
@@ -301,6 +302,7 @@ function App() {
 				setWorkspaceSwitcherOpen(true),
 			),
 			desktopApi.onMenuSyncWorkspace(() => void refreshFiles()),
+			desktopApi.onMenuStartClaude(() => void startClaude()),
 		];
 		return () => {
 			for (const dispose of disposers) dispose();
