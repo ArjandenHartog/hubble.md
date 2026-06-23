@@ -594,6 +594,13 @@ function buildMenu() {
 					enabled: menuState.hasWorkspace,
 					click: () => sendToRenderer("desktop:menu-show-workspace-switcher"),
 				},
+				{
+					id: "find-file",
+					label: "Find File...",
+					accelerator: "CmdOrCtrl+P",
+					enabled: menuState.hasWorkspace,
+					click: () => sendToRenderer("desktop:menu-search"),
+				},
 				{ type: "separator" },
 				{
 					id: "start-claude",

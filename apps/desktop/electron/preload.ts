@@ -93,6 +93,7 @@ const desktopApi = {
 		subscribe("desktop:menu-sync-workspace", callback),
 	onMenuStartClaude: (callback) =>
 		subscribe("desktop:menu-start-claude", callback),
+	onMenuSearch: (callback) => subscribe("desktop:menu-search", callback),
 	onWindowFocus: (callback) => subscribe("desktop:window-focus", callback),
 } satisfies DesktopApi;
 

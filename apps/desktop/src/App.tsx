@@ -8,6 +8,7 @@ import {
 	HtmlAppsDialog,
 	SidebarHtmlAppsCallout,
 } from "./components/HtmlAppsCallout";
+import { QuickSearch } from "./components/QuickSearch";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { Sidebar } from "./components/Sidebar";
 import { Toolbar } from "./components/Toolbar";
@@ -102,6 +103,7 @@ function App() {
 	const [scrollContainerEl, setScrollContainerEl] =
 		useState<HTMLDivElement | null>(null);
 	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [searchOpen, setSearchOpen] = useState(false);
 	const [updateState, setUpdateState] = useState<DesktopUpdateState | null>(
 		null,
 	);
@@ -240,6 +242,10 @@ function App() {
 			} else if (keymatch(event, "CmdOrCtrl+Shift+N")) {
 				event.preventDefault();
 				await openWorkspaceWithSidebar();
+			} else if (keymatch(event, "CmdOrCtrl+P")) {
+				if (!workspaceStore.get().workspacePath) return;
+				event.preventDefault();
+				setSearchOpen((current) => !current);
 			} else if (keymatch(event, "CmdOrCtrl+O")) {
 				event.preventDefault();
 				await openFilePicker();
@@ -303,6 +309,7 @@ function App() {
 			),
 			desktopApi.onMenuSyncWorkspace(() => void refreshFiles()),
 			desktopApi.onMenuStartClaude(() => void startClaude()),
+			desktopApi.onMenuSearch(() => setSearchOpen(true)),
 		];
 		return () => {
 			for (const dispose of disposers) dispose();
@@ -432,6 +439,7 @@ function App() {
 				onOpenChange={setHtmlAppsDialogOpen}
 				workspacePath={workspacePath ?? null}
 			/>
+			<QuickSearch open={searchOpen} onOpenChange={setSearchOpen} />
 		</main>
 	);
 }

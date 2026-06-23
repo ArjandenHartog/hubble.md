@@ -14,6 +14,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 - New slash commands: code block, plus inline bold, italic, and inline code
 - Selection toolbar: a floating bubble appears when you select text, with one-click bold, italic, inline code, strikethrough, and link
 - Tables: insert and edit GFM tables (with `/table`), including resizable columns and column alignment that round-trips through Markdown
+- Quick file search (Cmd/Ctrl+P, or File → Find File): fuzzy-jump to any note in the open folder by name or path
 
 ### Changed
 - Windows and Linux use the native window frame so the minimize/maximize/close controls are always available
