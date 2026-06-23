@@ -13,6 +13,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 - Settings are now reachable from the File menu on Windows and Linux
 - New slash commands: code block, plus inline bold, italic, and inline code
 - Selection toolbar: a floating bubble appears when you select text, with one-click bold, italic, inline code, strikethrough, and link
+- Tables: insert and edit GFM tables (with `/table`), including resizable columns and column alignment that round-trips through Markdown
 
 ### Changed
 - Windows and Linux use the native window frame so the minimize/maximize/close controls are always available

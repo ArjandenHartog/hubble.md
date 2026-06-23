@@ -26,6 +26,7 @@ import { LinkPopover, type WikiTarget } from "./LinkPopover";
 import { SelectionBubbleMenu } from "./SelectionBubbleMenu";
 import { SlashCommandMenu } from "./SlashCommandMenu";
 import { SmartLinkExtension } from "./SmartLinkExtension";
+import { tableExtensions } from "./TableExtensions";
 import { VirtualCursor } from "./VirtualCursor";
 import "./EditorView.css";
 import {
@@ -140,6 +141,7 @@ export function EditorView({
 			MarkdownRolloverExtension,
 			StrikethroughShortcutExtension,
 			...listExtensions,
+			...tableExtensions,
 			...extensions,
 			TaskItem.configure({ nested: true }),
 		],

@@ -20,6 +20,7 @@ import MingcuteListCheckLine from "~icons/mingcute/list-check-line";
 import MingcuteListOrderedLine from "~icons/mingcute/list-ordered-line";
 import MingcuteQuoteLeftLine from "~icons/mingcute/quote-left-line";
 import MingcuteStrikethroughLine from "~icons/mingcute/strikethrough-line";
+import MingcuteTableLine from "~icons/mingcute/table-2-line";
 import MingcuteTextLine from "~icons/mingcute/text-line";
 import { cn } from "../lib/utils";
 import { useCommandMenuPosition } from "./commandMenuPosition";
@@ -106,6 +107,13 @@ const SLASH_COMMANDS: SlashCommand[] = [
 		description: "Add a fenced code block",
 		aliases: ["code", "codeblock", "fence", "```", "pre", "snippet"],
 		icon: MingcuteFileCodeLine,
+	},
+	{
+		kind: "table",
+		title: "Table",
+		description: "Insert a 3×3 table",
+		aliases: ["table", "grid", "rows", "columns", "cells"],
+		icon: MingcuteTableLine,
 	},
 	{
 		kind: "divider",

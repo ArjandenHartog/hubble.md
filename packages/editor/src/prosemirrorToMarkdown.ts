@@ -58,6 +58,10 @@ function blockToMarkdown(node: JSONContent): string {
 			return "---";
 		}
 
+		case "table": {
+			return tableToMarkdown(node);
+		}
+
 		case "orderedList": {
 			const start = node.attrs?.start ?? 1;
 			return (node.content ?? [])
@@ -114,6 +118,54 @@ function escapeHtmlAttr(value: string) {
 		.join("&quot;")
 		.split("<")
 		.join("&lt;");
+}
+
+type TableCellAlign = "left" | "center" | "right" | null;
+
+function alignDelimiter(align: TableCellAlign): string {
+	switch (align) {
+		case "left":
+			return ":---";
+		case "right":
+			return "---:";
+		case "center":
+			return ":---:";
+		default:
+			return "---";
+	}
+}
+
+function tableCellToMarkdown(cell: JSONContent): string {
+	const text = (cell.content ?? [])
+		.map((block) =>
+			block.type === "paragraph"
+				? inlineToMarkdown(block.content ?? [])
+				: blockToMarkdown(block),
+		)
+		.filter((value) => value.length > 0)
+		.join(" ");
+	// GFM cells are single-line; escape pipes and flatten any newlines.
+	return text.replace(/\|/g, "\\|").replace(/\n+/g, " ");
+}
+
+function tableRowToMarkdown(row: JSONContent): string {
+	const cells = (row.content ?? []).map(tableCellToMarkdown);
+	return `| ${cells.join(" | ")} |`;
+}
+
+function tableToMarkdown(node: JSONContent): string {
+	const rows = node.content ?? [];
+	if (rows.length === 0) return "";
+	const [headerRow, ...bodyRows] = rows;
+	const aligns = (headerRow.content ?? []).map(
+		(cell) => (cell.attrs?.align ?? null) as TableCellAlign,
+	);
+	const delimiter = `| ${aligns.map(alignDelimiter).join(" | ")} |`;
+	return [
+		tableRowToMarkdown(headerRow),
+		delimiter,
+		...bodyRows.map(tableRowToMarkdown),
+	].join("\n");
 }
 
 function getLinkAttrs(node: JSONContent | undefined): LinkAttrs | null {

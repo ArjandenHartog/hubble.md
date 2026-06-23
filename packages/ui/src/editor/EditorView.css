@@ -515,3 +515,54 @@
 		inset-inline-start: 100%;
 	}
 }
+
+/* Tables */
+[data-hubble-editor] .ProseMirror table {
+	border-collapse: collapse;
+	table-layout: fixed;
+	width: 100%;
+	margin: 0.75rem 0;
+	overflow: hidden;
+}
+
+[data-hubble-editor] .ProseMirror table td,
+[data-hubble-editor] .ProseMirror table th {
+	position: relative;
+	min-width: 4rem;
+	border: 1px solid var(--border);
+	padding: 0.375rem 0.5rem;
+	vertical-align: top;
+	box-sizing: border-box;
+}
+
+[data-hubble-editor] .ProseMirror table th {
+	background: color-mix(in srgb, var(--muted) 60%, transparent);
+	font-weight: 600;
+	text-align: start;
+}
+
+[data-hubble-editor] .ProseMirror table td > p,
+[data-hubble-editor] .ProseMirror table th > p {
+	margin: 0;
+}
+
+[data-hubble-editor] .ProseMirror table .selectedCell::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: color-mix(in srgb, var(--primary) 16%, transparent);
+	pointer-events: none;
+}
+
+[data-hubble-editor] .ProseMirror table .column-resize-handle {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-end: -2px;
+	width: 4px;
+	background: var(--primary);
+	cursor: col-resize;
+}
+
+[data-hubble-editor] .ProseMirror.resize-cursor {
+	cursor: col-resize;
+}

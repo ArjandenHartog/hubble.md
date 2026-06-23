@@ -12,6 +12,7 @@ export type SlashCommandKind =
 	| "taskList"
 	| "blockquote"
 	| "codeBlock"
+	| "table"
 	| "divider"
 	| "bold"
 	| "italic"
@@ -66,6 +67,17 @@ export function applySlashCommand(
 	const blockStart = $from.before(topLevelDepth);
 	const blockEnd = $from.after(topLevelDepth);
 	const block = state.doc.nodeAt(blockStart);
+	if (kind === "table") {
+		// Tables are assembled by the Table extension command rather than a single
+		// schema node, so remove the slash token and let it insert at the caret.
+		view.dispatch(state.tr.delete(token.from, token.to));
+		editor
+			.chain()
+			.focus(undefined, { scrollIntoView: false })
+			.insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+			.run();
+		return;
+	}
 	const markName = MARK_KINDS[kind];
 	if (markName) {
 		const markType = schema.marks[markName];
@@ -188,6 +200,9 @@ function createEmptyBlock(
 			return blockquote.create(null, paragraph.create());
 		case "codeBlock":
 			return codeBlock ? codeBlock.create() : null;
+		case "table":
+			// Handled earlier via the Table extension command.
+			return null;
 		case "divider":
 			return horizontalRule.create();
 		case "bold":

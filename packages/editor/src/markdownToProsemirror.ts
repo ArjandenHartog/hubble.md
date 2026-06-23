@@ -5,7 +5,17 @@ import type {
 	RootContent,
 } from "hast";
 import { fromHtml } from "hast-util-from-html";
-import type { Content, Image, List, ListItem, Paragraph, Root } from "mdast";
+import type {
+	Content,
+	Image,
+	List,
+	ListItem,
+	TableCell as MdastTableCell,
+	TableRow as MdastTableRow,
+	Paragraph,
+	Root,
+	Table,
+} from "mdast";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { type Plugin, unified } from "unified";
@@ -136,8 +146,7 @@ function blockToPM(node: Content): JSONContent[] {
 			];
 		}
 		case "table":
-		case "tableRow":
-		case "tableCell":
+			return tableToPM(node as Table);
 		case "image": {
 			return imageToPM(node as Image);
 		}
@@ -220,6 +229,32 @@ function listItemToPM(li: ListItem, allowChecked: boolean): JSONContent[] {
 			type: "listItem",
 			attrs: { checked: checkedAttr },
 			content,
+		},
+	];
+}
+
+function tableToPM(node: Table): JSONContent[] {
+	const rows = (node.children ?? []) as MdastTableRow[];
+	if (rows.length === 0) return [];
+	const aligns = node.align ?? [];
+
+	const rowToPM = (row: MdastTableRow, isHeader: boolean): JSONContent => ({
+		type: "tableRow",
+		content: (row.children ?? []).map(
+			(cell: MdastTableCell, columnIndex): JSONContent => ({
+				type: isHeader ? "tableHeader" : "tableCell",
+				attrs: { align: aligns[columnIndex] ?? null },
+				content: [
+					{ type: "paragraph", content: inlineToPM(cell.children ?? []) },
+				],
+			}),
+		),
+	});
+
+	return [
+		{
+			type: "table",
+			content: rows.map((row, rowIndex) => rowToPM(row, rowIndex === 0)),
 		},
 	];
 }
