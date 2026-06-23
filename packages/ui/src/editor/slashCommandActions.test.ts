@@ -118,6 +118,18 @@ describe("slash command document actions", () => {
 		});
 	});
 
+	it("converts an empty slash paragraph into a code block", () => {
+		const editor = createEditor(docWithParagraph("/code"));
+		const token = expectSlashToken(editor);
+
+		applySlashCommand(editor, token, "codeBlock");
+
+		expect(editor.getJSON()).toMatchObject({
+			type: "doc",
+			content: [{ type: "codeBlock" }, { type: "paragraph" }],
+		});
+	});
+
 	it("toggles strikethrough for following typed text", () => {
 		const editor = createEditor(docWithParagraph("/strike"));
 		const token = expectSlashToken(editor);
@@ -136,6 +148,30 @@ describe("slash command document actions", () => {
 							text: "next",
 							marks: [{ type: "strike" }],
 						},
+					],
+				},
+			],
+		});
+	});
+
+	it.each([
+		["bold", "bold"],
+		["italic", "italic"],
+		["code", "code"],
+	] as const)("toggles the %s mark for following typed text", (kind, markType) => {
+		const editor = createEditor(docWithParagraph(`/${kind}`));
+		const token = expectSlashToken(editor);
+
+		applySlashCommand(editor, token, kind);
+
+		editor.commands.insertContent("next");
+		expect(editor.getJSON()).toMatchObject({
+			type: "doc",
+			content: [
+				{
+					type: "paragraph",
+					content: [
+						{ type: "text", text: "next", marks: [{ type: markType }] },
 					],
 				},
 			],

@@ -7,10 +7,14 @@ import {
 	useRef,
 	useState,
 } from "react";
+import MingcuteBoldLine from "~icons/mingcute/bold-line";
 import MingcuteBorderHorizontalLine from "~icons/mingcute/border-horizontal-line";
+import MingcuteCodeLine from "~icons/mingcute/code-line";
+import MingcuteFileCodeLine from "~icons/mingcute/file-code-line";
 import MingcuteHeading1Line from "~icons/mingcute/heading-1-line";
 import MingcuteHeading2Line from "~icons/mingcute/heading-2-line";
 import MingcuteHeading3Line from "~icons/mingcute/heading-3-line";
+import MingcuteItalicLine from "~icons/mingcute/italic-line";
 import MingcuteListCheck2Line from "~icons/mingcute/list-check-2-line";
 import MingcuteListCheckLine from "~icons/mingcute/list-check-line";
 import MingcuteListOrderedLine from "~icons/mingcute/list-ordered-line";
@@ -97,11 +101,39 @@ const SLASH_COMMANDS: SlashCommand[] = [
 		icon: MingcuteQuoteLeftLine,
 	},
 	{
+		kind: "codeBlock",
+		title: "Code block",
+		description: "Add a fenced code block",
+		aliases: ["code", "codeblock", "fence", "```", "pre", "snippet"],
+		icon: MingcuteFileCodeLine,
+	},
+	{
 		kind: "divider",
 		title: "Divider",
 		description: "Separate sections",
 		aliases: ["hr", "horizontal", "rule", "separator", "---"],
 		icon: MingcuteBorderHorizontalLine,
+	},
+	{
+		kind: "bold",
+		title: "Bold",
+		description: "Toggle bold text",
+		aliases: ["bold", "strong", "b"],
+		icon: MingcuteBoldLine,
+	},
+	{
+		kind: "italic",
+		title: "Italic",
+		description: "Toggle italic text",
+		aliases: ["italic", "emphasis", "i"],
+		icon: MingcuteItalicLine,
+	},
+	{
+		kind: "code",
+		title: "Inline code",
+		description: "Toggle inline code",
+		aliases: ["code", "inline", "mono", "`"],
+		icon: MingcuteCodeLine,
 	},
 	{
 		kind: "strike",
