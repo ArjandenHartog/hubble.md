@@ -15,6 +15,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 - Selection toolbar: a floating bubble appears when you select text, with one-click bold, italic, inline code, strikethrough, and link
 - Tables: insert and edit GFM tables (with `/table`), including resizable columns and column alignment that round-trips through Markdown
 - Quick file search (Cmd/Ctrl+P, or File → Find File): fuzzy-jump to any note in the open folder by name or path
+- Language switcher: when a doc has translations (language folders like `en/`, `nl/` or suffixes like `intro.en.md`), a toolbar control lets you switch language
 
 ### Changed
 - Windows and Linux use the native window frame so the minimize/maximize/close controls are always available
