@@ -23,6 +23,7 @@ import { CODE_BLOCK_COPY_EVENT, HubbleCodeBlock } from "./CodeBlockExtension";
 import { LinkClickExtension } from "./LinkClickExtension";
 import { LinkCreationGhostExtension } from "./LinkCreationGhostExtension";
 import { LinkPopover, type WikiTarget } from "./LinkPopover";
+import { SelectionBubbleMenu } from "./SelectionBubbleMenu";
 import { SlashCommandMenu } from "./SlashCommandMenu";
 import { SmartLinkExtension } from "./SmartLinkExtension";
 import { VirtualCursor } from "./VirtualCursor";
@@ -277,6 +278,7 @@ export function EditorView({
 					onCursorModeChange={setCursorModeOverride}
 				/>
 				<SlashCommandMenu editor={editor} viewportRef={editorViewportRef} />
+				<SelectionBubbleMenu editor={editor} viewportRef={editorViewportRef} />
 				<FormatCommandMenu editor={editor} viewportRef={editorViewportRef} />
 			</div>
 			<FormattingStatusBar editor={editor} scrollContainer={editorViewportEl} />

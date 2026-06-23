@@ -12,6 +12,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 - Start Claude in your open folder straight from the toolbar (or File menu) so your agent gets instant access to your notes
 - Settings are now reachable from the File menu on Windows and Linux
 - New slash commands: code block, plus inline bold, italic, and inline code
+- Selection toolbar: a floating bubble appears when you select text, with one-click bold, italic, inline code, strikethrough, and link
 
 ### Changed
 - Windows and Linux use the native window frame so the minimize/maximize/close controls are always available

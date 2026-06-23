@@ -2,6 +2,7 @@ import {
 	computePosition,
 	flip,
 	offset,
+	type Placement,
 	shift,
 	type VirtualElement,
 } from "@floating-ui/dom";
@@ -13,18 +14,35 @@ type MenuPosition = {
 	y: number;
 };
 
+const FALLBACK_PLACEMENTS: Record<Placement, Placement[]> = {
+	"bottom-start": ["top-start", "bottom-end", "top-end"],
+	"top-start": ["bottom-start", "top-end", "bottom-end"],
+	top: ["bottom", "top-start", "bottom-start"],
+	bottom: ["top", "bottom-start", "top-start"],
+	"top-end": ["bottom-end", "top-start", "bottom-start"],
+	"bottom-end": ["top-end", "bottom-start", "top-start"],
+	"right-start": ["left-start"],
+	"left-start": ["right-start"],
+	right: ["left"],
+	left: ["right"],
+	"right-end": ["left-end"],
+	"left-end": ["right-end"],
+};
+
 function updateCommandMenuPosition({
 	editor,
 	viewport,
 	floatingEl,
 	pos,
 	setPosition,
+	placement,
 }: {
 	editor: Editor;
 	viewport: HTMLDivElement;
 	floatingEl: HTMLDivElement;
 	pos: number;
 	setPosition: (position: MenuPosition) => void;
+	placement: Placement;
 }) {
 	const reference: VirtualElement = {
 		contextElement: viewport,
@@ -48,12 +66,12 @@ function updateCommandMenuPosition({
 
 	return computePosition(reference, floatingEl, {
 		strategy: "absolute",
-		placement: "bottom-start",
+		placement,
 		middleware: [
 			offset(6),
 			flip({
 				boundary: viewport,
-				fallbackPlacements: ["top-start", "bottom-end", "top-end"],
+				fallbackPlacements: FALLBACK_PLACEMENTS[placement] ?? ["bottom-start"],
 				padding: 8,
 			}),
 			shift({
@@ -72,12 +90,14 @@ export function useCommandMenuPosition({
 	pos,
 	setPosition,
 	viewportRef,
+	placement = "bottom-start",
 }: {
 	editor: Editor | null;
 	floatingRef: RefObject<HTMLDivElement | null>;
 	pos: number | null;
 	setPosition: (position: MenuPosition) => void;
 	viewportRef: RefObject<HTMLDivElement | null>;
+	placement?: Placement;
 }) {
 	useEffect(() => {
 		if (!editor || pos === null) return;
@@ -92,6 +112,7 @@ export function useCommandMenuPosition({
 				floatingEl,
 				pos,
 				setPosition,
+				placement,
 			});
 		};
 
@@ -103,5 +124,5 @@ export function useCommandMenuPosition({
 			viewport.removeEventListener("scroll", update);
 			window.removeEventListener("resize", update);
 		};
-	}, [editor, floatingRef, pos, setPosition, viewportRef]);
+	}, [editor, floatingRef, pos, setPosition, viewportRef, placement]);
 }
